@@ -245,3 +245,10 @@ Thumbs.db
 
 # Docker
 *.pid
+
+# Archivos locales generados por Astro
+.astro/
+
+# Datos generados por las corridas del pipeline.
+# Bronce y futuras salidas se reconstruyen ejecutando el DAG.
+include/output/
