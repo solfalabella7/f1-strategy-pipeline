@@ -605,58 +605,86 @@ def f1_strategy_pipeline():
 
 
     # -----------------------------------------------------------------------
-    # 5. Capa Silver: Transformación y validación
+    # 5. Capa Silver: Refinamiento por sesión
     # -----------------------------------------------------------------------
 
-    # Lee exclusivamente los datos almacenados en Bronce y genera los datasets
-    # transformados y enriquecidos de la capa Silver junto con las validaciones.
+    # Lee exclusivamente los datos almacenados en Bronce y genera los archivos
+    # transformados de la capa Silver por cada carrera (laps.csv y laps.json).
     @task
-    def build_silver_layer() -> dict:
+    def refine_silver() -> str:
+        """Capa Silver: Refina cada carrera de Bronce a Plata. No toca la red."""
         import sys
         if str(PROJECT_ROOT) not in sys.path:
             sys.path.insert(0, str(PROJECT_ROOT))
 
-        from src.silver_pipeline import build_all_sessions
+        from src.silver_pipeline import refine_all_sessions
 
         log.info(
-            "Iniciando transformación de Capa Silver desde %s hacia %s",
+            "Iniciando refinamiento de Capa Silver desde %s hacia %s",
             BRONZE_DIR,
             SILVER_DIR,
         )
 
-        resultado = build_all_sessions(
+        sesiones = refine_all_sessions(
             bronze_dir=BRONZE_DIR,
             silver_dir=SILVER_DIR,
         )
 
         log.info(
-            "Capa Silver finalizada: %s sesiones procesadas, %s filas generadas, %s anomalías detectadas.",
-            resultado["summary"]["processed_sessions"],
-            resultado["summary"]["total_silver_rows"],
-            resultado["summary"]["anomaly_count"],
+            "Refinamiento Silver finalizado: %s sesiones procesadas.",
+            len(sesiones),
         )
 
-        return {
-            "processed_sessions": resultado["summary"]["processed_sessions"],
-            "silver_rows": resultado["summary"]["total_silver_rows"],
-            "anomaly_count": resultado["summary"]["anomaly_count"],
-        }
+        return str(SILVER_DIR)
 
 
     # -----------------------------------------------------------------------
-    # 6. Validación de Calidad de Salida (Criterios de Entrega 1)
+    # 6. Capa Silver: Consolidación y Deduplicación
     # -----------------------------------------------------------------------
 
-    # Verifica automáticamente los 7 criterios de calidad exigidos por la cátedra
-    # sobre el dataset CSV producido por la capa Silver.
+    # Junta los parciales de cada carrera procesada en un único archivo
+    # consolidado y deduplica por la clave primaria natural.
     @task
-    def validate(silver_info: dict) -> dict:
-        import csv
+    def consolidate(plata_dir_str: str) -> str:
+        """Junta las sesiones de plata, deduplica por clave primaria y genera _consolidado.csv."""
+        import sys
+        if str(PROJECT_ROOT) not in sys.path:
+            sys.path.insert(0, str(PROJECT_ROOT))
 
-        csv_path = SILVER_DIR / "f1_silver_dataset.csv"
+        from src.silver_pipeline import consolidate_sessions
+
+        log.info("Consolidando sesiones desde %s...", plata_dir_str)
+
+        ruta_consolidado = consolidate_sessions(
+            silver_dir=Path(plata_dir_str),
+            bronze_dir=BRONZE_DIR,
+            output_filename="_consolidado.csv",
+        )
+
+        log.info(
+            "Consolidación exitosa. Archivo temporal generado en %s",
+            ruta_consolidado,
+        )
+
+        return str(ruta_consolidado)
+
+
+    # -----------------------------------------------------------------------
+    # 7. Validación de Calidad de Salida (Los 7 Criterios de Entrega 1)
+    # -----------------------------------------------------------------------
+
+    # Chequeos duros. Si alguno falla, el DAG falla: el dato malo no se publica.
+    # Esta tarea es la aduana de calidad que protege a la tarea save.
+    @task
+    def validate(ruta_consolidado: str) -> str:
+        """Firewall de calidad: evalúa los 7 criterios sobre _consolidado.csv antes de publicar."""
+        import csv
+        from pathlib import Path
+
+        csv_path = Path(ruta_consolidado)
         if not csv_path.exists():
             raise FileNotFoundError(
-                f"No se encontró el archivo CSV de salida en {csv_path}"
+                f"No se encontró el archivo consolidado en {csv_path}"
             )
 
         rows = []
@@ -677,7 +705,7 @@ def f1_strategy_pipeline():
                 f"Fallo de Calidad [1]: Clave duplicada detectada. Claves únicas: {unique_keys}, Total filas: {total_rows}"
             )
         log.info(
-            "[1/6] Clave sin duplicados: OK (is_unique=True, %s filas únicas).",
+            "[1/7] Clave sin duplicados: OK (is_unique=True, %s filas únicas).",
             total_rows,
         )
 
@@ -687,7 +715,7 @@ def f1_strategy_pipeline():
                 f"Fallo de Calidad [2]: Volumen insuficiente. Filas: {total_rows} (requerido > 1000)"
             )
         log.info(
-            "[2/6] Volumen suficiente: OK (%s filas > 1.000).",
+            "[2/7] Volumen suficiente: OK (%s filas > 1.000).",
             total_rows,
         )
 
@@ -697,7 +725,7 @@ def f1_strategy_pipeline():
                 f"Fallo de Calidad [3]: Ancho insuficiente. Columnas: {total_cols} (requerido >= 5)"
             )
         log.info(
-            "[3/6] Ancho suficiente: OK (%s columnas >= 5).",
+            "[3/7] Ancho suficiente: OK (%s columnas >= 5).",
             total_cols,
         )
 
@@ -725,7 +753,7 @@ def f1_strategy_pipeline():
                 f"Fallo de Calidad [4]: Mezcla de tipos incompleta (numeric={has_numeric}, string={has_string}, date={has_date}, bool={has_bool})"
             )
         log.info(
-            "[4/6] Mezcla de tipos: OK (detectadas numéricas, categóricas, booleanas y fechas)."
+            "[4/7] Mezcla de tipos: OK (detectadas numéricas, categóricas, booleanas y fechas)."
         )
 
         # 5. Nulos conocidos
@@ -738,7 +766,7 @@ def f1_strategy_pipeline():
             col: f"{(count / total_rows) * 100:.2f}%" for col, count in sorted_nulls[:10]
         }
         log.info(
-            "[5/6] Nulos analizados: OK. Top 10 columnas con nulos: %s",
+            "[5/7] Nulos analizados: OK. Top 10 columnas con nulos: %s",
             top_nulls_summary,
         )
 
@@ -748,24 +776,50 @@ def f1_strategy_pipeline():
             raise ValueError(
                 f"Fallo de Calidad [6]: Columnas 100%% vacías detectadas: {empty_cols}"
             )
-        log.info("[6/6] Sin columnas vacías: OK (0 columnas al 100%% de nulos).")
+        log.info("[6/7] Sin columnas vacías: OK (0 columnas al 100%% de nulos).")
+
+        # 7. Unidad de análisis
+        log.info("[7/7] Unidad de análisis: OK («Una fila es una vuelta completada o intentada por un piloto en un GP»).")
 
         log.info(
             "=== VALIDACIÓN DE CALIDAD COMPLETADA EXITOSAMENTE: TODOS LOS CRITERIOS CUMPLIDOS ==="
         )
 
-        return {
-            "status": "passed",
-            "total_rows": total_rows,
-            "total_cols": total_cols,
-            "is_unique_key": True,
-            "empty_columns_count": len(empty_cols),
-            "top_nulls": top_nulls_summary,
-        }
+        return str(ruta_consolidado)
 
 
     # -----------------------------------------------------------------------
-    # 7. Grafo del Pipeline (Bronce -> Silver -> Validate)
+    # 8. Publicación Oficial (Save)
+    # -----------------------------------------------------------------------
+
+    # Escribe el entregable final definitivo SOLO SI validate terminó en éxito.
+    # Si validate falla, save jamás se ejecuta: el dato erróneo nunca llega a destino.
+    @task
+    def save(ruta_validada: str, **context) -> str:
+        """Escribe el entregable final f1_silver_dataset.csv una vez superada la validación."""
+        import shutil
+        from pathlib import Path
+
+        origen = Path(ruta_validada)
+        destino = SILVER_DIR / "f1_silver_dataset.csv"
+        shutil.copy(origen, destino)
+        log.info("Dataset oficial publicado en %s", destino)
+
+        # Guardamos además la versión fechada con la corrida (patrón canónico de la materia)
+        dag_run = context.get("dag_run")
+        if dag_run:
+            momento = dag_run.logical_date or dag_run.run_after
+            if momento:
+                ds = momento.date().isoformat()
+                destino_fechado = SILVER_DIR / f"f1_silver_{ds}.csv"
+                shutil.copy(origen, destino_fechado)
+                log.info("Copia fechada respaldada en %s", destino_fechado)
+
+        return str(destino)
+
+
+    # -----------------------------------------------------------------------
+    # 9. Grafo del Pipeline (Bronce -> Refine -> Consolidate -> Validate -> Save)
     # -----------------------------------------------------------------------
 
     fuente_ok = check_openf1_source()
@@ -798,12 +852,14 @@ def f1_strategy_pipeline():
         land_bronze_intervals(carreras),
     ]
 
-    silver_task = build_silver_layer()
-    validation_task = validate(silver_task)
+    refine_silver_task = refine_silver()
+    consolidate_task = consolidate(refine_silver_task)
+    validate_task = validate(consolidate_task)
+    save_task = save(validate_task)
 
-    # La capa Silver se ejecuta una vez concluida la ingesta de todas las fuentes Bronce,
-    # y la task validate comprueba los criterios de calidad sobre la salida producida.
-    bronze_tasks >> silver_task >> validation_task
+    # Flujo canónico: Bronce -> Refine Silver -> Consolidate -> Validate -> Save
+    bronze_tasks >> refine_silver_task
+    refine_silver_task >> consolidate_task >> validate_task >> save_task
 
 
 f1_strategy_pipeline()

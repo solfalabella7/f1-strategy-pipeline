@@ -247,12 +247,7 @@ Thumbs.db
 *.pid
 
 # Archivos locales generados por Astro
-.astro/standalone/
-.astro/worktrees/
-.astro/*.local.yml
-.astro/*.local.yaml
-**/.astro/dbt_metadata.json
-**/.astro/manifest.slim.json
+.astro/
 
 # Datos generados por las corridas del pipeline.
 # Bronce y futuras salidas se reconstruyen ejecutando el DAG.

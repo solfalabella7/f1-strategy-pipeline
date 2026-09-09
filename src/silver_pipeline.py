@@ -775,14 +775,13 @@ def _session_anomalies(
     return anomalies
 
 
-def build_all_sessions(
+def refine_all_sessions(
     bronze_dir: Path = DEFAULT_BRONZE,
     silver_dir: Path = DEFAULT_SILVER,
-) -> dict[str, Any]:
+) -> list[dict[str, Any]]:
+    """Capa Silver - Refinamiento por sesión: transforma cada carrera de Bronce a Plata (laps.csv y laps.json)."""
     inventory = _session_inventory(bronze_dir)
-    session_reports = []
-    anomalies = []
-    total_rows: list[dict[str, Any]] = []
+    session_results = []
     for season, session_key in inventory:
         output_path, rows, metadata = build_session(
             bronze_dir, silver_dir, season, session_key
@@ -792,134 +791,110 @@ def build_all_sessions(
         report_path = output_path.parent / "validation.json"
         with report_path.open("w", encoding="utf-8") as handle:
             json.dump(report, handle, ensure_ascii=False, indent=2)
+        session_results.append({
+            "season": season,
+            "session_key": session_key,
+            "rows_count": len(rows),
+            "output_path": str(output_path),
+        })
+    return session_results
+
+
+def consolidate_sessions(
+    silver_dir: Path = DEFAULT_SILVER,
+    bronze_dir: Path = DEFAULT_BRONZE,
+    output_filename: str = "_consolidado.csv",
+) -> Path:
+    """Capa Silver - Consolidación: junta todas las sesiones en un único dataset, deduplica y genera _consolidado.csv."""
+    inventory = _session_inventory(bronze_dir)
+    session_reports = []
+    anomalies = []
+    total_rows: list[dict[str, Any]] = []
+
+    for season, session_key in inventory:
+        session_path = silver_dir / f"season={season}" / f"session={session_key}" / "laps.json"
+        if not session_path.exists():
+            continue
+        rows = read_json(session_path)
+        val_path = session_path.parent / "validation.json"
+        report = read_json(val_path) if val_path.exists() else {}
         session_reports.append(report)
         anomalies.extend(_session_anomalies(report, rows))
         total_rows.extend(rows)
 
-    total_bronze = sum(report["bronze_lap_count"] for report in session_reports)
-    total_silver = len(total_rows)
-    global_keys = [
-        (row["session_key"], row["driver_number"], row["lap_number"])
-        for row in total_rows
-    ]
+    # Deduplicación explícita por clave primaria (session_key, driver_number, lap_number)
+    dedup_dict = {}
+    for row in total_rows:
+        key = (row.get("session_key"), row.get("driver_number"), row.get("lap_number"))
+        dedup_dict[key] = row
+    dedup_rows = list(dedup_dict.values())
+
+    total_bronze = sum(report.get("bronze_lap_count", 0) for report in session_reports)
+    total_silver = len(dedup_rows)
     source_names = ("stints", "weather", "position", "intervals", "pit", "race_control")
+
     global_summary = {
-        "expected_sessions": 70,
+        "expected_sessions": len(inventory),
         "processed_sessions": len(session_reports),
         "sessions_by_season": dict(
-            Counter(report["session"]["year"] for report in session_reports)
+            Counter(report.get("session", {}).get("year") for report in session_reports if report.get("session"))
         ),
         "missing_sessions": [],
         "total_bronze_rows": total_bronze,
         "total_silver_rows": total_silver,
         "row_difference": total_silver - total_bronze,
-        "duplicate_key_count": len(global_keys) - len(set(global_keys)),
+        "duplicate_key_count": len(total_rows) - len(dedup_rows),
         "coverage": {
-            "stints_pct": round(
-                100 * sum(r["has_stint"] for r in total_rows) / total_silver, 2
-            )
-            if total_silver
-            else 0,
-            "weather_pct": round(
-                100 * sum(r["has_weather"] for r in total_rows) / total_silver, 2
-            )
-            if total_silver
-            else 0,
-            "position_available_pct": round(
-                100 * sum(r["position_available"] for r in total_rows) / total_silver, 2
-            )
-            if total_silver
-            else 0,
-            "position_missing_pct": round(
-                100 * sum(r["position_missing"] for r in total_rows) / total_silver, 2
-            )
-            if total_silver
-            else 0,
-            "position_stale_pct": round(
-                100 * sum(r["position_stale"] for r in total_rows) / total_silver, 2
-            )
-            if total_silver
-            else 0,
-            "intervals_pct": round(
-                100 * sum(r["has_interval"] for r in total_rows) / total_silver, 2
-            )
-            if total_silver
-            else 0,
-            "pit_available_pct": round(
-                100 * sum(r["pit_data_available"] for r in total_rows) / total_silver, 2
-            )
-            if total_silver
-            else 0,
-            "race_control_rows_pct": round(
-                100
-                * sum(bool(r["race_control_event_count"]) for r in total_rows)
-                / total_silver,
-                2,
-            )
-            if total_silver
-            else 0,
+            "stints_pct": round(100 * sum(r.get("has_stint", False) for r in dedup_rows) / total_silver, 2) if total_silver else 0,
+            "weather_pct": round(100 * sum(r.get("has_weather", False) for r in dedup_rows) / total_silver, 2) if total_silver else 0,
+            "position_available_pct": round(100 * sum(r.get("position_available", False) for r in dedup_rows) / total_silver, 2) if total_silver else 0,
+            "position_missing_pct": round(100 * sum(r.get("position_missing", False) for r in dedup_rows) / total_silver, 2) if total_silver else 0,
+            "position_stale_pct": round(100 * sum(r.get("position_stale", False) for r in dedup_rows) / total_silver, 2) if total_silver else 0,
+            "intervals_pct": round(100 * sum(r.get("has_interval", False) for r in dedup_rows) / total_silver, 2) if total_silver else 0,
+            "pit_available_pct": round(100 * sum(r.get("pit_data_available", False) for r in dedup_rows) / total_silver, 2) if total_silver else 0,
+            "race_control_rows_pct": round(100 * sum(bool(r.get("race_control_event_count", 0)) for r in dedup_rows) / total_silver, 2) if total_silver else 0,
         },
         "position": {
-            "available": sum(r["position_available"] for r in total_rows),
-            "missing": sum(r["position_missing"] for r in total_rows),
-            "stale": sum(r["position_stale"] for r in total_rows),
-            "age_seconds": _distribution(total_rows, "position_timestamp_age_seconds"),
+            "available": sum(r.get("position_available", False) for r in dedup_rows),
+            "missing": sum(r.get("position_missing", False) for r in dedup_rows),
+            "stale": sum(r.get("position_stale", False) for r in dedup_rows),
+            "age_seconds": _distribution(dedup_rows, "position_timestamp_age_seconds"),
         },
         "race_control": {
-            "safety_car_rows": sum(r["safety_car_active"] for r in total_rows),
-            "virtual_safety_car_rows": sum(
-                r["virtual_safety_car_active"] for r in total_rows
-            ),
-            "yellow_flag_rows": sum(r["yellow_flag_active"] for r in total_rows),
-            "red_flag_rows": sum(r["red_flag_active"] for r in total_rows),
-            "yellow_scopes": dict(
-                Counter(
-                    r["yellow_flag_scope"] for r in total_rows if r["yellow_flag_scope"]
-                )
-            ),
-            "session_statuses": dict(
-                Counter(r["session_status"] for r in total_rows if r["session_status"])
-            ),
+            "safety_car_rows": sum(r.get("safety_car_active", False) for r in dedup_rows),
+            "virtual_safety_car_rows": sum(r.get("virtual_safety_car_active", False) for r in dedup_rows),
+            "yellow_flag_rows": sum(r.get("yellow_flag_active", False) for r in dedup_rows),
+            "red_flag_rows": sum(r.get("red_flag_active", False) for r in dedup_rows),
+            "yellow_scopes": dict(Counter(r.get("yellow_flag_scope") for r in dedup_rows if r.get("yellow_flag_scope"))),
+            "session_statuses": dict(Counter(r.get("session_status") for r in dedup_rows if r.get("session_status"))),
         },
         "causality": {
             "evaluated": {
-                name: sum(report["temporal_joins"][name] for report in session_reports)
+                name: sum(report.get("temporal_joins", {}).get(name, 0) for report in session_reports)
                 for name in ("weather", "position", "intervals", "race_control")
             },
             "future": {
-                name: sum(
-                    report["future_temporal_joins"][name] for report in session_reports
-                )
+                name: sum(report.get("future_temporal_joins", {}).get(name, 0) for report in session_reports)
                 for name in ("weather", "position", "intervals", "race_control")
             },
         },
         "quality": {
-            "lap_timestamp_null": sum(
-                r["quality"]["missing_lap_timestamp"] for r in session_reports
-            ),
-            "laps_without_stint": sum(not row["has_stint"] for row in total_rows),
-            "weather_missing": sum(not row["has_weather"] for row in total_rows),
-            "position_missing": sum(row["position_missing"] for row in total_rows),
-            "intervals_missing": sum(not row["has_interval"] for row in total_rows),
-            "pit_unavailable_rows": sum(
-                not row["pit_data_available"] for row in total_rows
-            ),
-            "incomplete_laps": sum(
-                r["quality"]["incomplete_lap_rows"] for r in session_reports
-            ),
-            "possible_early_exit_rows": sum(
-                r["quality"]["possible_early_exit_rows"] for r in session_reports
-            ),
+            "lap_timestamp_null": sum(r.get("quality", {}).get("missing_lap_timestamp", 0) for r in session_reports),
+            "laps_without_stint": sum(not row.get("has_stint", False) for row in dedup_rows),
+            "weather_missing": sum(not row.get("has_weather", False) for row in dedup_rows),
+            "position_missing": sum(row.get("position_missing", False) for row in dedup_rows),
+            "intervals_missing": sum(not row.get("has_interval", False) for row in dedup_rows),
+            "pit_unavailable_rows": sum(not row.get("pit_data_available", False) for row in dedup_rows),
+            "incomplete_laps": sum(r.get("quality", {}).get("incomplete_lap_rows", 0) for r in session_reports),
+            "possible_early_exit_rows": sum(r.get("quality", {}).get("possible_early_exit_rows", 0) for r in session_reports),
         },
         "source_sessions_without_data": {
-            name: sum(
-                not report["source_available"].get(name, False)
-                for report in session_reports
-            )
+            name: sum(not report.get("source_available", {}).get(name, False) for report in session_reports)
             for name in source_names
         },
         "anomaly_count": len(anomalies),
     }
+
     silver_dir.mkdir(parents=True, exist_ok=True)
     report_path = silver_dir / "global_validation.json"
     anomaly_path = silver_dir / "anomalies.json"
@@ -927,17 +902,31 @@ def build_all_sessions(
         json.dump(global_summary, handle, ensure_ascii=False, indent=2)
     with anomaly_path.open("w", encoding="utf-8") as handle:
         json.dump(anomalies, handle, ensure_ascii=False, indent=2)
-    if total_rows:
-        global_csv_path = silver_dir / "f1_silver_dataset.csv"
-        with global_csv_path.open("w", encoding="utf-8", newline="") as handle:
-            writer = csv.DictWriter(handle, fieldnames=list(total_rows[0].keys()))
+
+    output_csv = silver_dir / output_filename
+    if dedup_rows:
+        with output_csv.open("w", encoding="utf-8", newline="") as handle:
+            writer = csv.DictWriter(handle, fieldnames=list(dedup_rows[0].keys()))
             writer.writeheader()
-            writer.writerows(total_rows)
+            writer.writerows(dedup_rows)
+
+    return output_csv
+
+
+def build_all_sessions(
+    bronze_dir: Path = DEFAULT_BRONZE,
+    silver_dir: Path = DEFAULT_SILVER,
+) -> dict[str, Any]:
+    refine_all_sessions(bronze_dir, silver_dir)
+    csv_path = consolidate_sessions(silver_dir, bronze_dir, output_filename="f1_silver_dataset.csv")
+    global_validation = read_json(silver_dir / "global_validation.json")
+    anomalies = read_json(silver_dir / "anomalies.json")
     return {
-        "summary": global_summary,
+        "summary": global_validation,
         "anomalies": anomalies,
-        "reports": session_reports,
+        "csv_path": str(csv_path),
     }
+
 
 
 def main() -> None:
