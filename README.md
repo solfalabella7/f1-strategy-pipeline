@@ -1,184 +1,135 @@
-# f1-strategy-pipeline
+# F1 Strategy Pipeline
 
-Pipeline de datos para analizar estrategias de neumáticos
-de Fórmula 1 utilizando OpenF1, Apache Airflow y PostgreSQL.
-Pipeline de datos para analizar y modelar estrategias de neumáticos de Fórmula 1 utilizando la API pública [OpenF1](https://openf1.org/), Apache Airflow y PostgreSQL.
+Pipeline de datos para estudiar decisiones de neumáticos en carreras de Fórmula 1.
 
-## Tecnologías
----
+La pregunta del proyecto es: **¿conviene entrar a boxes a cambiar el compuesto en una determinada vuelta, dadas las condiciones de carrera, el circuito y el estado actual de los neumáticos? Si conviene, ¿a qué compuesto cambiar?**
 
-- Python
-- Apache Airflow
-- PostgreSQL
-- Docker
-- OpenF1 API
-## 🏎️ Descripción del Proyecto
+La fuente es la API pública [OpenF1](https://openf1.org/). El pipeline conserva las respuestas originales en Bronce, construye un dataset Silver por piloto y vuelta, y etiqueta la acción observada en la vuelta siguiente. Esa etiqueta describe lo que hizo el equipo; no demuestra que haya sido la decisión óptima.
+
+## Estado del proyecto
+
+La Entrega 1 está implementada y validada: 70 carreras de 2023–2025, 77.373 filas, 117 columnas, 0 claves duplicadas, 0 columnas completamente vacías, 64.001 filas elegibles y etiquetadas, y 27 pruebas aprobadas.
+
+La versión vigente se identifica en `include/output/silver/current.json`. La release validada es `c17cb51d8d3f88c45d3a823b`.
+
+PostgreSQL, el modelo predictivo y el recomendador de alternativas son etapas posteriores. El esquema SQL está preparado, pero la Entrega 1 no carga Silver en PostgreSQL.
 
 ## Arquitectura
-El objetivo de este proyecto es construir un dataset enriquecido y analítico orientado a predecir y evaluar decisiones de paradas en boxes, degradación de neumáticos y ritmo de carrera.
 
-OpenF1 API
-    ↓
-Airflow
-    ↓
-PostgreSQL
-    ↓
-Feature Engineering
-    ↓
-Modelo de decisión
-El pipeline sigue una **arquitectura Medallion (Data Lakehouse)**:
-
-```
-OpenF1 API (v1)
-      │
-      ▼ (Ingesta HTTP con control de rate-limit e idempotencia)
-[Capa Bronce] ───► JSONs inmutables en include/output/bronze/
-      │
-      ▼ (Limpieza determinística, uniones temporales As-Of y validaciones)
-[Capa Silver] ───► laps.json enriquecidos y reportes de calidad en include/output/silver/
-      │
-      ▼ (Almacenamiento relacional estructurado e indexado)
-[PostgreSQL 16] ──► Esquema analítico (circuits, sessions, laps, stints, weather...)
-      │
-      ▼
-[Feature Engineering & Modelos Predictivos]
+```text
+OpenF1 API → Airflow / Astro → Bronce: include/output/bronze/
+                                  ↓
+                Silver versionado: include/output/silver/releases/<release_id>/
+                                  ├── f1_silver_dataset.csv
+                                  ├── quality.json
+                                  ├── global_validation.json
+                                  ├── anomalies.json
+                                  └── manifest.json
 ```
 
----
+`current.json` apunta a la última release validada. Bronce se conserva para reconstruir Silver sin consultar nuevamente la API.
 
-## 🛠️ Tecnologías
+## Unidad de análisis y etiqueta
 
-- **Python 3.10+**: Lógica de transformación, uniones temporales y scripts analíticos.
-- **Apache Airflow (vía Astronomer / Astro Runtime 3.3)**: Orquestación del flujo de datos con la TaskFlow API.
-- **PostgreSQL 16**: Base de datos relacional para consulta e indexación de telemetría y eventos.
-- **Docker & Docker Compose**: Contenedorización de PostgreSQL y servicios de Airflow.
-- **OpenF1 API**: Fuente pública de telemetría, tiempos de vuelta, clima y radio de dirección de carrera.
+Una fila representa una vuelta registrada de un piloto en una carrera. La clave es `(session_key, driver_number, lap_number)`. El instante de decisión se estima al finalizar la vuelta `t`, usando `lap_date_start + lap_duration`; la etiqueta describe la acción observada durante la vuelta siguiente.
 
----
+Las clases de `accion_observada_proxima_vuelta` son `CONTINUAR`, `BOX_SOFT`, `BOX_MEDIUM`, `BOX_HARD`, `BOX_INTERMEDIATE` y `BOX_WET`.
 
-## 📋 Prerrequisitos
+Cuando la parada, el inicio del stint o el instante siguiente no pueden confirmarse, la etiqueta queda nula y se informa `target_exclusion_reason`. No se asigna `CONTINUAR` por defecto.
 
-Asegúrate de contar con las siguientes herramientas instaladas en tu sistema:
+Los predictores permitidos están definidos en `src/decisions.py::FEATURES`. Incluyen compuesto y edad actuales, ritmo histórico, circuito, clima, posición, intervalos y estado de pista disponibles hasta la decisión. No incluyen la parada futura, el compuesto siguiente ni resultados finales.
 
-1. **Docker Desktop** (en Windows/Mac) o **Docker Engine** (en Linux/WSL2), con el motor en ejecución.
-1. **Docker Desktop** (en Windows/Mac) o **Docker Engine** (en Linux/WSL2), con el motor en ejecución.  
-   *Nota para Windows:* Asegúrate de que Docker Desktop esté abierto y con el motor iniciado (*Engine running*). Si recién lo instalaste o tu terminal no reconoce `docker`, reinicia la terminal o editor para refrescar el `PATH`.
-2. **Astro CLI** (v1.40+): Utilizado para gestionar el entorno de desarrollo de Airflow.  
-   *Instalación en Windows (winget):* `winget install Astronomer.Astro`  
-   *Instalación en macOS/Linux:* `brew install astro` o vía curl según la [documentación oficial](https://www.astronomer.io/docs/astro/cli/install-cli).
-3. **Python 3.10 o superior** (para pruebas locales o ejecución directa de la capa Silver).
+Más detalles: [docs/DATA_DICTIONARY.md](docs/DATA_DICTIONARY.md) y [docs/SILVER.md](docs/SILVER.md).
 
----
+## Requisitos
 
-## 🚀 Puesta en Marcha
+- Docker Desktop o Docker Engine en ejecución.
+- Astro CLI 1.40 o posterior.
+- Python 3.10 o posterior para pruebas y ejecución local.
 
-### 1. Iniciar la Base de Datos (PostgreSQL)
+La imagen usa Astro Runtime 3.3. Las dependencias adicionales de Airflow están en `requirements.txt`.
 
-Para levantar el contenedor de PostgreSQL con el esquema relacional inicializado automáticamente:
+## Ejecución con Astro
+
+Desde la raíz del repositorio:
+
+```bash
+astro dev start
+```
+
+Abrir [http://localhost:8080](http://localhost:8080) con usuario `admin` y contraseña `admin`. Activar y ejecutar el DAG `f1_strategy_pipeline`.
+
+El DAG comprueba el snapshot local o la fuente, descarga/reutiliza catálogos y Bronce, descubre carreras no canceladas, construye una release Silver y verifica el manifiesto, los hashes y el CSV de esa misma release.
+
+La configuración permite una corrida activa y dos tareas activas. Las respuestas existentes se reutilizan después de validarlas; las nuevas se publican mediante escritura atómica. Los errores transitorios tienen dos reintentos y la pausa entre solicitudes es de 5 segundos.
+
+Para detener el entorno:
+
+```bash
+astro dev stop
+```
+
+## PostgreSQL local
+
+El `docker-compose.yml` levanta PostgreSQL 16 en `localhost:5433` con base `f1_strategy`, usuario `f1user`, contraseña `f1password` y esquema inicial `database/init/001_create_schema.sql`.
 
 ```bash
 docker compose up -d
 ```
 
-* **Host**: `localhost`
-* **Puerto**: `5433` (mapeado al puerto interno 5432)
-* **Base de datos**: `f1_strategy`
-* **Usuario**: `f1user`
-* **Contraseña**: `f1password`
-* **DDL / Esquema**: Se ejecuta automáticamente desde [`database/init/001_create_schema.sql`](database/init/001_create_schema.sql).
+El esquema pertenece a la etapa relacional posterior. Actualmente no es destino automático del DAG de la Entrega 1.
 
----
+## Ejecución local desde Bronce
 
-### 2. Iniciar el Orquestador (Apache Airflow)
+La transformación no consulta la API y puede ejecutarse sobre el snapshot local:
 
-El entorno de Airflow está empaquetado como un proyecto de Astro CLI:
+```bash
+python -m src.silver_pipeline --season 2024 --session-key 9550
+python -m src.silver_pipeline --all
+```
 
-1. Inicia el entorno local de desarrollo:
-   ```bash
-   astro dev start
-   ```
-   *(Este comando descarga la imagen del Runtime, compila las dependencias de `requirements.txt` y levanta el Webserver, Scheduler, Triggerer y base de datos de metadatos).*
+`--all` publica una release validada bajo `include/output/silver/releases/` y actualiza `current.json`. Para verificar una release concreta:
 
-   > **💡 Solución de problemas comunes al iniciar:**
-   > - **`Failed to find a container runtime`**: Docker Desktop no está en ejecución o la ruta a `docker.exe` no está cargada en el `PATH` de la terminal activa. Verifica ejecutando `docker version`.
-   > - **`this is not an Astro project directory`**: Falta la carpeta de configuración `.astro/` en el proyecto. Puedes regenerarla ejecutando `astro dev init -f`.
+```bash
+python verify_quality_criteria.py \
+  --csv include/output/silver/releases/<release_id>/f1_silver_dataset.csv \
+  --report include/output/silver/releases/<release_id>/quality-check.json
+```
 
-2. Abre tu navegador e ingresa a:
-   * **URL**: [http://localhost:8080](http://localhost:8080)
-   * **Usuario**: `admin`
-   * **Contraseña**: `admin`
+La validación bloquea la salida ante claves duplicadas, filas insuficientes, tipos no declarados, valores inválidos, joins futuros, estados SC/VSC simultáneos, columnas vacías o etiquetas inconsistentes.
 
-3. **Disparar el Pipeline de F1**:
-   * En la interfaz web, activa el DAG **`f1_strategy_pipeline`** y presiona **Trigger DAG**.
-   * También puedes dispararlo directamente por terminal:
-     ```bash
-     astro dev run dags trigger f1_strategy_pipeline
-     ```
+## Pruebas
 
-4. **Detener el entorno de Airflow** cuando finalices:
-   ```bash
-   astro dev stop
-   ```
+```bash
+python -m pytest tests -q
+astro dev pytest
+```
 
----
+La suite cubre transformaciones Silver, integridad del DAG, ingesta atómica, caché corrupta, inventario incompleto, etiquetas ambiguas, reinicios, amarillas por sector, joins temporales y el contrato de calidad.
 
-### 3. Ejecución Local de la Capa Silver (Sin Docker)
+## Documentación
 
-El módulo [`src/silver_pipeline.py`](src/silver_pipeline.py) es completamente determinístico y utiliza únicamente la librería estándar de Python (no depende de Airflow ni de llamadas de red). Procesa los archivos descargados en la capa Bronce:
+- [docs/Entrega1.md](docs/Entrega1.md): lineamientos de la cátedra.
+- [docs/ENTREGA1_DEFENSA.md](docs/ENTREGA1_DEFENSA.md): guion y preguntas para la exposición.
+- [docs/RESULTADOS_ENTREGA1.md](docs/RESULTADOS_ENTREGA1.md): métricas y evidencia de la release.
+- [docs/DATA_DICTIONARY.md](docs/DATA_DICTIONARY.md): fuentes, tipos, nulos y uso de variables.
+- [docs/PLAN_TRABAJO.md](docs/PLAN_TRABAJO.md): etapas posteriores, modelo y recomendador.
 
-* **Procesar una sesión específica (ej. Gran Premio de Austria 2024, sesión 9550):**
-  ```bash
-  python -m src.silver_pipeline --season 2024 --session-key 9550
-  ```
-  Genera `laps.json` y el reporte de calidad `validation.json` en `include/output/silver/season=2024/session=9550/`.
-
-* **Procesar todas las sesiones disponibles en Bronce:**
-  ```bash
-  python -m src.silver_pipeline --all
-  ```
-  Genera la capa Silver para cada sesión junto con los reportes consolidados `global_validation.json` y `anomalies.json`.
-
----
-
-## 🧪 Pruebas Automatizadas
-
-Para validar las transformaciones y la integridad del pipeline:
-
-1. **Instalar pytest**:
-   ```bash
-   pip install pytest
-   ```
-
-2. **Ejecutar tests de la capa Silver**:
-   ```bash
-   python -m pytest tests/test_silver_pipeline.py
-   ```
-
-3. **Ejecutar tests de integridad de DAGs (dentro de Astro)**:
-   ```bash
-   astro dev pytest
-   ```
-
----
-
-## 📂 Estructura del Repositorio
+## Estructura principal
 
 ```text
-├── .astro/                  # Configuración y pruebas de integridad del proyecto Astro CLI
-├── dags/
-│   └── f1_strategy_pipeline.py  # DAG principal de ingesta Bronce y orquestación Silver
-├── database/
-│   └── init/
-│       └── 001_create_schema.sql # DDL de PostgreSQL con tablas relacionales e índices
-├── docs/
-│   └── SILVER.md                # Especificación y contrato de datos de la capa Silver
-├── src/
-│   └── silver_pipeline.py       # Motor determinístico de enriquecimiento y joins As-Of
+├── dags/f1_strategy_pipeline.py
+├── src/{bronze,decisions,io_utils,quality,release,silver_pipeline,track_state}.py
 ├── tests/
-│   ├── dags/                    # Pruebas de integridad de DAGs de Airflow
-│   └── test_silver_pipeline.py  # Pruebas unitarias de uniones y validaciones Silver
-├── airflow_settings.yaml        # Conexiones locales de Airflow (OpenF1 HTTP Hook)
-├── docker-compose.yml           # Definición del servicio PostgreSQL 16
-├── Dockerfile                   # Imagen base de Astro Runtime
-└── requirements.txt             # Paquetes y proveedores de Python para Airflow
+├── database/init/001_create_schema.sql
+├── docs/
+├── verify_quality_criteria.py
+├── airflow_settings.yaml
+├── docker-compose.yml
+├── Dockerfile
+└── requirements.txt
 ```
+
+## Límites conocidos
+
+La acción observada no es una etiqueta causal de conveniencia. Las filas con fuente ausente o alineación temporal ambigua se excluyen del aprendizaje y se contabilizan. `tyre_age` es edad en vueltas, no una medición física de desgaste. Para recomendar una estrategia habrá que estimar las consecuencias de alternativas no ejecutadas, incorporando pérdida de boxes, tráfico, clima, neutralizaciones, horizonte e incertidumbre.
