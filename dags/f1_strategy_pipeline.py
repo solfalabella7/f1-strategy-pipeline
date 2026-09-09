@@ -4,16 +4,17 @@
 Pipeline de datos para construir un dataset orientado al análisis de
 estrategias de neumáticos de Fórmula 1 utilizando la API de OpenF1.
 
-En esta primera etapa se implementa únicamente la capa Bronce:
-las respuestas de la API se guardan tal como llegan, sin transformarlas.
-
-La capa Silver se incorporará posteriormente sobre este mismo DAG,
-leyendo exclusivamente los datos almacenados en Bronce.
+El pipeline ejecuta:
+1. Capa Bronce: Ingesta cruda de la API OpenF1 almacenada en JSON inmutables.
+2. Capa Silver: Transformación y enriquecimiento determinístico de datos
+   (vueltas, stints, condiciones climáticas, estado de pista y posiciones)
+   con validaciones y reportes de calidad.
 """
 
 from __future__ import annotations
 
 import logging
+import sys
 import time
 from pathlib import Path
 
@@ -24,6 +25,11 @@ from airflow.sdk import dag, task
 
 log = logging.getLogger(__name__)
 
+# Asegurar que la raíz del proyecto esté en sys.path para importar módulos de src/
+PROJECT_ROOT = Path(__file__).resolve().parent.parent
+if str(PROJECT_ROOT) not in sys.path:
+    sys.path.insert(0, str(PROJECT_ROOT))
+
 
 # ---------------------------------------------------------------------------
 # Configuración general
@@ -33,6 +39,7 @@ log = logging.getLogger(__name__)
 # Las etapas posteriores deberán leer estos archivos y no volver a la fuente.
 OUTPUT_DIR = Path("/usr/local/airflow/include/output")
 BRONZE_DIR = OUTPUT_DIR / "bronze"
+SILVER_DIR = OUTPUT_DIR / "silver"
 
 # La URL base de OpenF1 vive en airflow_settings.yaml.
 CONN_ID = "openf1"
@@ -598,7 +605,167 @@ def f1_strategy_pipeline():
 
 
     # -----------------------------------------------------------------------
-    # 5. Grafo de la capa Bronce
+    # 5. Capa Silver: Transformación y validación
+    # -----------------------------------------------------------------------
+
+    # Lee exclusivamente los datos almacenados en Bronce y genera los datasets
+    # transformados y enriquecidos de la capa Silver junto con las validaciones.
+    @task
+    def build_silver_layer() -> dict:
+        import sys
+        if str(PROJECT_ROOT) not in sys.path:
+            sys.path.insert(0, str(PROJECT_ROOT))
+
+        from src.silver_pipeline import build_all_sessions
+
+        log.info(
+            "Iniciando transformación de Capa Silver desde %s hacia %s",
+            BRONZE_DIR,
+            SILVER_DIR,
+        )
+
+        resultado = build_all_sessions(
+            bronze_dir=BRONZE_DIR,
+            silver_dir=SILVER_DIR,
+        )
+
+        log.info(
+            "Capa Silver finalizada: %s sesiones procesadas, %s filas generadas, %s anomalías detectadas.",
+            resultado["summary"]["processed_sessions"],
+            resultado["summary"]["total_silver_rows"],
+            resultado["summary"]["anomaly_count"],
+        )
+
+        return {
+            "processed_sessions": resultado["summary"]["processed_sessions"],
+            "silver_rows": resultado["summary"]["total_silver_rows"],
+            "anomaly_count": resultado["summary"]["anomaly_count"],
+        }
+
+
+    # -----------------------------------------------------------------------
+    # 6. Validación de Calidad de Salida (Criterios de Entrega 1)
+    # -----------------------------------------------------------------------
+
+    # Verifica automáticamente los 7 criterios de calidad exigidos por la cátedra
+    # sobre el dataset CSV producido por la capa Silver.
+    @task
+    def validate(silver_info: dict) -> dict:
+        import csv
+
+        csv_path = SILVER_DIR / "f1_silver_dataset.csv"
+        if not csv_path.exists():
+            raise FileNotFoundError(
+                f"No se encontró el archivo CSV de salida en {csv_path}"
+            )
+
+        rows = []
+        with csv_path.open("r", encoding="utf-8") as f:
+            reader = csv.DictReader(f)
+            fieldnames = reader.fieldnames or []
+            for r in reader:
+                rows.append(r)
+
+        total_rows = len(rows)
+        total_cols = len(fieldnames)
+
+        # 1. Clave primaria sin duplicados (session_key + driver_number + lap_number)
+        keys = [(r["session_key"], r["driver_number"], r["lap_number"]) for r in rows]
+        unique_keys = len(set(keys))
+        if unique_keys != total_rows:
+            raise ValueError(
+                f"Fallo de Calidad [1]: Clave duplicada detectada. Claves únicas: {unique_keys}, Total filas: {total_rows}"
+            )
+        log.info(
+            "[1/6] Clave sin duplicados: OK (is_unique=True, %s filas únicas).",
+            total_rows,
+        )
+
+        # 2. Volumen suficiente (> 1.000 filas)
+        if total_rows <= 1000:
+            raise ValueError(
+                f"Fallo de Calidad [2]: Volumen insuficiente. Filas: {total_rows} (requerido > 1000)"
+            )
+        log.info(
+            "[2/6] Volumen suficiente: OK (%s filas > 1.000).",
+            total_rows,
+        )
+
+        # 3. Ancho suficiente (>= 5 columnas útiles)
+        if total_cols < 5:
+            raise ValueError(
+                f"Fallo de Calidad [3]: Ancho insuficiente. Columnas: {total_cols} (requerido >= 5)"
+            )
+        log.info(
+            "[3/6] Ancho suficiente: OK (%s columnas >= 5).",
+            total_cols,
+        )
+
+        # 4. Mezcla de tipos (numéricas, categóricas, booleanas, fechas)
+        has_numeric = False
+        has_string = False
+        has_date = False
+        has_bool = False
+
+        for col in fieldnames:
+            samples = [r[col] for r in rows if r[col] != ""]
+            if not samples:
+                continue
+            if all(s in ("True", "False") for s in samples[:50]):
+                has_bool = True
+            elif all(s.replace(".", "", 1).replace("-", "", 1).isdigit() for s in samples[:50]):
+                has_numeric = True
+            elif any("T" in s and ("+" in s or "Z" in s or "-" in s) for s in samples[:20]):
+                has_date = True
+            else:
+                has_string = True
+
+        if not (has_numeric and has_string and has_date and has_bool):
+            raise ValueError(
+                f"Fallo de Calidad [4]: Mezcla de tipos incompleta (numeric={has_numeric}, string={has_string}, date={has_date}, bool={has_bool})"
+            )
+        log.info(
+            "[4/6] Mezcla de tipos: OK (detectadas numéricas, categóricas, booleanas y fechas)."
+        )
+
+        # 5. Nulos conocidos
+        null_counts = {
+            col: sum(1 for r in rows if r[col] == "" or r[col] is None)
+            for col in fieldnames
+        }
+        sorted_nulls = sorted(null_counts.items(), key=lambda x: x[1], reverse=True)
+        top_nulls_summary = {
+            col: f"{(count / total_rows) * 100:.2f}%" for col, count in sorted_nulls[:10]
+        }
+        log.info(
+            "[5/6] Nulos analizados: OK. Top 10 columnas con nulos: %s",
+            top_nulls_summary,
+        )
+
+        # 6. Sin columnas vacías (ninguna al 100% de nulos)
+        empty_cols = [col for col, count in null_counts.items() if count == total_rows]
+        if empty_cols:
+            raise ValueError(
+                f"Fallo de Calidad [6]: Columnas 100%% vacías detectadas: {empty_cols}"
+            )
+        log.info("[6/6] Sin columnas vacías: OK (0 columnas al 100%% de nulos).")
+
+        log.info(
+            "=== VALIDACIÓN DE CALIDAD COMPLETADA EXITOSAMENTE: TODOS LOS CRITERIOS CUMPLIDOS ==="
+        )
+
+        return {
+            "status": "passed",
+            "total_rows": total_rows,
+            "total_cols": total_cols,
+            "is_unique_key": True,
+            "empty_columns_count": len(empty_cols),
+            "top_nulls": top_nulls_summary,
+        }
+
+
+    # -----------------------------------------------------------------------
+    # 7. Grafo del Pipeline (Bronce -> Silver -> Validate)
     # -----------------------------------------------------------------------
 
     fuente_ok = check_openf1_source()
@@ -620,14 +787,23 @@ def f1_strategy_pipeline():
     # Todos estos endpoints necesitan conocer las carreras, pero no dependen
     # unos de otros. Airflow puede ejecutarlos independientemente respetando
     # el límite de concurrencia configurado en el DAG.
-    land_bronze_drivers(carreras)
-    land_bronze_laps(carreras)
-    land_bronze_stints(carreras)
-    land_bronze_pit(carreras)
-    land_bronze_weather(carreras)
-    land_bronze_positions(carreras)
-    land_bronze_race_control(carreras)
-    land_bronze_intervals(carreras)
+    bronze_tasks = [
+        land_bronze_drivers(carreras),
+        land_bronze_laps(carreras),
+        land_bronze_stints(carreras),
+        land_bronze_pit(carreras),
+        land_bronze_weather(carreras),
+        land_bronze_positions(carreras),
+        land_bronze_race_control(carreras),
+        land_bronze_intervals(carreras),
+    ]
+
+    silver_task = build_silver_layer()
+    validation_task = validate(silver_task)
+
+    # La capa Silver se ejecuta una vez concluida la ingesta de todas las fuentes Bronce,
+    # y la task validate comprueba los criterios de calidad sobre la salida producida.
+    bronze_tasks >> silver_task >> validation_task
 
 
 f1_strategy_pipeline()

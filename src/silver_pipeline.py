@@ -8,6 +8,7 @@ Python interpreter.
 from __future__ import annotations
 
 import argparse
+import csv
 import json
 import math
 import re
@@ -463,6 +464,12 @@ def build_session(
     output_path = destination / "laps.json"
     with output_path.open("w", encoding="utf-8") as handle:
         json.dump(output, handle, ensure_ascii=False, indent=2)
+    if output:
+        csv_path = destination / "laps.csv"
+        with csv_path.open("w", encoding="utf-8", newline="") as handle:
+            writer = csv.DictWriter(handle, fieldnames=list(output[0].keys()))
+            writer.writeheader()
+            writer.writerows(output)
     return (
         output_path,
         output,
@@ -920,6 +927,12 @@ def build_all_sessions(
         json.dump(global_summary, handle, ensure_ascii=False, indent=2)
     with anomaly_path.open("w", encoding="utf-8") as handle:
         json.dump(anomalies, handle, ensure_ascii=False, indent=2)
+    if total_rows:
+        global_csv_path = silver_dir / "f1_silver_dataset.csv"
+        with global_csv_path.open("w", encoding="utf-8", newline="") as handle:
+            writer = csv.DictWriter(handle, fieldnames=list(total_rows[0].keys()))
+            writer.writeheader()
+            writer.writerows(total_rows)
     return {
         "summary": global_summary,
         "anomalies": anomalies,
