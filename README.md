@@ -61,6 +61,8 @@ OpenF1 API (v1)
 Asegúrate de contar con las siguientes herramientas instaladas en tu sistema:
 
 1. **Docker Desktop** (en Windows/Mac) o **Docker Engine** (en Linux/WSL2), con el motor en ejecución.
+1. **Docker Desktop** (en Windows/Mac) o **Docker Engine** (en Linux/WSL2), con el motor en ejecución.  
+   *Nota para Windows:* Asegúrate de que Docker Desktop esté abierto y con el motor iniciado (*Engine running*). Si recién lo instalaste o tu terminal no reconoce `docker`, reinicia la terminal o editor para refrescar el `PATH`.
 2. **Astro CLI** (v1.40+): Utilizado para gestionar el entorno de desarrollo de Airflow.  
    *Instalación en Windows (winget):* `winget install Astronomer.Astro`  
    *Instalación en macOS/Linux:* `brew install astro` o vía curl según la [documentación oficial](https://www.astronomer.io/docs/astro/cli/install-cli).
@@ -96,6 +98,10 @@ El entorno de Airflow está empaquetado como un proyecto de Astro CLI:
    astro dev start
    ```
    *(Este comando descarga la imagen del Runtime, compila las dependencias de `requirements.txt` y levanta el Webserver, Scheduler, Triggerer y base de datos de metadatos).*
+
+   > **💡 Solución de problemas comunes al iniciar:**
+   > - **`Failed to find a container runtime`**: Docker Desktop no está en ejecución o la ruta a `docker.exe` no está cargada en el `PATH` de la terminal activa. Verifica ejecutando `docker version`.
+   > - **`this is not an Astro project directory`**: Falta la carpeta de configuración `.astro/` en el proyecto. Puedes regenerarla ejecutando `astro dev init -f`.
 
 2. Abre tu navegador e ingresa a:
    * **URL**: [http://localhost:8080](http://localhost:8080)
@@ -158,6 +164,7 @@ Para validar las transformaciones y la integridad del pipeline:
 ## 📂 Estructura del Repositorio
 
 ```text
+├── .astro/                  # Configuración y pruebas de integridad del proyecto Astro CLI
 ├── dags/
 │   └── f1_strategy_pipeline.py  # DAG principal de ingesta Bronce y orquestación Silver
 ├── database/
