@@ -645,7 +645,7 @@ def f1_strategy_pipeline():
     # Junta los parciales de cada carrera procesada en un único archivo
     # consolidado y deduplica por la clave primaria natural.
     @task
-    def consolidate(plata_dir_str: str) -> str:
+    def consolidate(plata_dir_str: str | None = None) -> str:
         """Junta las sesiones de plata, deduplica por clave primaria y genera _consolidado.csv."""
         import sys
         if str(PROJECT_ROOT) not in sys.path:
@@ -653,10 +653,11 @@ def f1_strategy_pipeline():
 
         from src.silver_pipeline import consolidate_sessions
 
-        log.info("Consolidando sesiones desde %s...", plata_dir_str)
+        plata_dir = Path(plata_dir_str) if plata_dir_str else SILVER_DIR
+        log.info("Consolidando sesiones desde %s...", plata_dir)
 
         ruta_consolidado = consolidate_sessions(
-            silver_dir=Path(plata_dir_str),
+            silver_dir=plata_dir,
             bronze_dir=BRONZE_DIR,
             output_filename="_consolidado.csv",
         )
@@ -676,12 +677,12 @@ def f1_strategy_pipeline():
     # Chequeos duros. Si alguno falla, el DAG falla: el dato malo no se publica.
     # Esta tarea es la aduana de calidad que protege a la tarea save.
     @task
-    def validate(ruta_consolidado: str) -> str:
+    def validate(ruta_consolidado: str | None = None) -> str:
         """Firewall de calidad: evalúa los 7 criterios sobre _consolidado.csv antes de publicar."""
         import csv
         from pathlib import Path
 
-        csv_path = Path(ruta_consolidado)
+        csv_path = Path(ruta_consolidado) if ruta_consolidado else SILVER_DIR / "_consolidado.csv"
         if not csv_path.exists():
             raise FileNotFoundError(
                 f"No se encontró el archivo consolidado en {csv_path}"
@@ -795,12 +796,12 @@ def f1_strategy_pipeline():
     # Escribe el entregable final definitivo SOLO SI validate terminó en éxito.
     # Si validate falla, save jamás se ejecuta: el dato erróneo nunca llega a destino.
     @task
-    def save(ruta_validada: str, **context) -> str:
+    def save(ruta_validada: str | None = None, **context) -> str:
         """Escribe el entregable final f1_silver_dataset.csv una vez superada la validación."""
         import shutil
         from pathlib import Path
 
-        origen = Path(ruta_validada)
+        origen = Path(ruta_validada) if ruta_validada else SILVER_DIR / "_consolidado.csv"
         destino = SILVER_DIR / "f1_silver_dataset.csv"
         shutil.copy(origen, destino)
         log.info("Dataset oficial publicado en %s", destino)
