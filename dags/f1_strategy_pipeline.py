@@ -4,16 +4,17 @@
 Pipeline de datos para construir un dataset orientado al análisis de
 estrategias de neumáticos de Fórmula 1 utilizando la API de OpenF1.
 
-En esta primera etapa se implementa únicamente la capa Bronce:
-las respuestas de la API se guardan tal como llegan, sin transformarlas.
-
-La capa Silver se incorporará posteriormente sobre este mismo DAG,
-leyendo exclusivamente los datos almacenados en Bronce.
+El pipeline ejecuta:
+1. Capa Bronce: Ingesta cruda de la API OpenF1 almacenada en JSON inmutables.
+2. Capa Silver: Transformación y enriquecimiento determinístico de datos
+   (vueltas, stints, condiciones climáticas, estado de pista y posiciones)
+   con validaciones y reportes de calidad.
 """
 
 from __future__ import annotations
 
 import logging
+import sys
 import time
 from pathlib import Path
 
@@ -24,6 +25,11 @@ from airflow.sdk import dag, task
 
 log = logging.getLogger(__name__)
 
+# Asegurar que la raíz del proyecto esté en sys.path para importar módulos de src/
+PROJECT_ROOT = Path(__file__).resolve().parent.parent
+if str(PROJECT_ROOT) not in sys.path:
+    sys.path.insert(0, str(PROJECT_ROOT))
+
 
 # ---------------------------------------------------------------------------
 # Configuración general
@@ -33,6 +39,7 @@ log = logging.getLogger(__name__)
 # Las etapas posteriores deberán leer estos archivos y no volver a la fuente.
 OUTPUT_DIR = Path("/usr/local/airflow/include/output")
 BRONZE_DIR = OUTPUT_DIR / "bronze"
+SILVER_DIR = OUTPUT_DIR / "silver"
 
 # La URL base de OpenF1 vive en airflow_settings.yaml.
 CONN_ID = "openf1"
@@ -598,7 +605,46 @@ def f1_strategy_pipeline():
 
 
     # -----------------------------------------------------------------------
-    # 5. Grafo de la capa Bronce
+    # 5. Capa Silver: Transformación y validación
+    # -----------------------------------------------------------------------
+
+    # Lee exclusivamente los datos almacenados en Bronce y genera los datasets
+    # transformados y enriquecidos de la capa Silver junto con las validaciones.
+    @task
+    def build_silver_layer() -> dict:
+        import sys
+        if str(PROJECT_ROOT) not in sys.path:
+            sys.path.insert(0, str(PROJECT_ROOT))
+
+        from src.silver_pipeline import build_all_sessions
+
+        log.info(
+            "Iniciando transformación de Capa Silver desde %s hacia %s",
+            BRONZE_DIR,
+            SILVER_DIR,
+        )
+
+        resultado = build_all_sessions(
+            bronze_dir=BRONZE_DIR,
+            silver_dir=SILVER_DIR,
+        )
+
+        log.info(
+            "Capa Silver finalizada: %s sesiones procesadas, %s filas generadas, %s anomalías detectadas.",
+            resultado["summary"]["processed_sessions"],
+            resultado["summary"]["total_silver_rows"],
+            resultado["summary"]["anomaly_count"],
+        )
+
+        return {
+            "processed_sessions": resultado["summary"]["processed_sessions"],
+            "silver_rows": resultado["summary"]["total_silver_rows"],
+            "anomaly_count": resultado["summary"]["anomaly_count"],
+        }
+
+
+    # -----------------------------------------------------------------------
+    # 6. Grafo del Pipeline (Bronce -> Silver)
     # -----------------------------------------------------------------------
 
     fuente_ok = check_openf1_source()
@@ -620,14 +666,21 @@ def f1_strategy_pipeline():
     # Todos estos endpoints necesitan conocer las carreras, pero no dependen
     # unos de otros. Airflow puede ejecutarlos independientemente respetando
     # el límite de concurrencia configurado en el DAG.
-    land_bronze_drivers(carreras)
-    land_bronze_laps(carreras)
-    land_bronze_stints(carreras)
-    land_bronze_pit(carreras)
-    land_bronze_weather(carreras)
-    land_bronze_positions(carreras)
-    land_bronze_race_control(carreras)
-    land_bronze_intervals(carreras)
+    bronze_tasks = [
+        land_bronze_drivers(carreras),
+        land_bronze_laps(carreras),
+        land_bronze_stints(carreras),
+        land_bronze_pit(carreras),
+        land_bronze_weather(carreras),
+        land_bronze_positions(carreras),
+        land_bronze_race_control(carreras),
+        land_bronze_intervals(carreras),
+    ]
+
+    silver_task = build_silver_layer()
+
+    # La capa Silver se ejecuta una vez concluida la ingesta de todas las fuentes Bronce.
+    bronze_tasks >> silver_task
 
 
 f1_strategy_pipeline()
