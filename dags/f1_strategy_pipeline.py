@@ -1,809 +1,126 @@
+"""F1: fuente/caché → Bronce por endpoint → Silver versionado → calidad.
+
+Una fila es una vuelta de un piloto. La etiqueta describe una acción observada
+en la próxima vuelta; no certifica que esa estrategia fuera óptima.
 """
-### F1 Strategy Pipeline — Ciencia de Datos, UTN FRM 2026
-
-Pipeline de datos para construir un dataset orientado al análisis de
-estrategias de neumáticos de Fórmula 1 utilizando la API de OpenF1.
-
-El pipeline ejecuta:
-1. Capa Bronce: Ingesta cruda de la API OpenF1 almacenada en JSON inmutables.
-2. Capa Silver: Transformación y enriquecimiento determinístico de datos
-   (vueltas, stints, condiciones climáticas, estado de pista y posiciones)
-   con validaciones y reportes de calidad.
-"""
-
 from __future__ import annotations
 
+import json
 import logging
 import sys
-import time
 from pathlib import Path
 
 import pendulum
 from airflow.providers.http.hooks.http import HttpHook
 from airflow.sdk import dag, task
 
-
-log = logging.getLogger(__name__)
-
-# Asegurar que la raíz del proyecto esté en sys.path para importar módulos de src/
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
+from src.bronze import land_response
+from src.io_utils import bronze_payload
+from src.release import REQUIRED_SOURCES, expected_inventory, input_hashes, verify_release
 
-# ---------------------------------------------------------------------------
-# Configuración general
-# ---------------------------------------------------------------------------
-
-# Bronce conserva las respuestas originales de OpenF1.
-# Las etapas posteriores deberán leer estos archivos y no volver a la fuente.
-OUTPUT_DIR = Path("/usr/local/airflow/include/output")
+log = logging.getLogger(__name__)
+OUTPUT_DIR = PROJECT_ROOT / "include/output"
 BRONZE_DIR = OUTPUT_DIR / "bronze"
 SILVER_DIR = OUTPUT_DIR / "silver"
-
-# La URL base de OpenF1 vive en airflow_settings.yaml.
-CONN_ID = "openf1"
-
-# Temporadas incluidas en el alcance actual del dataset.
 SEASONS = [2023, 2024, 2025]
-
-# OpenF1 limita la cantidad de requests por minuto.
-# Esta pausa, junto con el paralelismo limitado del DAG,
-# evita golpear la API con demasiadas consultas simultáneas.
+CONN_ID = "openf1"
 REQUEST_DELAY_SECONDS = 5
 
 
-# ---------------------------------------------------------------------------
-# Función auxiliar de Bronce
-# ---------------------------------------------------------------------------
-
-def land_json(
-    endpoint: str,
-    parametros: dict,
-    destino: Path,
-) -> str:
-    """
-    Persiste una respuesta JSON de OpenF1 sin transformarla.
-
-    Regla común de Bronce:
-    - si el archivo ya existe, se reutiliza;
-    - si OpenF1 devuelve datos, se guarda la respuesta original;
-    - si OpenF1 informa que no existen resultados, también se conserva
-      esa respuesta como evidencia del dato crudo;
-    - cualquier otro error HTTP hace fallar la task.
-    """
-
-    # Una corrida posterior no vuelve a pedir información que ya quedó
-    # correctamente almacenada en Bronce.
-    if destino.exists():
-        log.info(
-            "Bronce ya existe. Se reutiliza %s",
-            destino,
-        )
-        return str(destino)
-
-    hook = HttpHook(
-        method="GET",
-        http_conn_id=CONN_ID,
+def fetch(endpoint, parameters):
+    return HttpHook(method="GET", http_conn_id=CONN_ID).run(
+        endpoint=f"v1/{endpoint}", data=parameters,
+        extra_options={"check_response": False, "timeout": (10, 60)},
     )
 
-    # Se desactiva el chequeo automático de errores para poder distinguir
-    # un 404 que significa "sin resultados" de un error HTTP real.
-    response = hook.run(
-        endpoint=f"v1/{endpoint}",
-        data=parametros,
-        extra_options={
-            "check_response": False,
-        },
-    )
 
-    # OpenF1 puede devolver 404 cuando la consulta es válida pero no existen
-    # registros para esa sesión. Esa ausencia también forma parte del dato
-    # crudo y debe quedar registrada en Bronce.
-    if response.status_code == 404:
-        try:
-            detalle = response.json().get("detail")
-        except Exception:
-            detalle = None
-
-        if detalle == "No results found.":
-            destino.parent.mkdir(
-                parents=True,
-                exist_ok=True,
-            )
-
-            destino.write_text(
-                response.text,
-                encoding="utf-8",
-            )
-
-            log.warning(
-                "OpenF1 no tiene resultados para endpoint=%s "
-                "con parámetros=%s. Se conserva la respuesta en %s",
-                endpoint,
-                parametros,
-                destino,
-            )
-
-            time.sleep(REQUEST_DELAY_SECONDS)
-
-            return str(destino)
-
-    # Cualquier otro error HTTP sí representa un fallo real.
-    # Por ejemplo, un 429 permitirá que Airflow utilice los retries.
-    response.raise_for_status()
-
-    destino.parent.mkdir(
-        parents=True,
-        exist_ok=True,
-    )
-
-    # Bronce conserva directamente el cuerpo recibido desde OpenF1.
-    # La interpretación del JSON pertenece a la futura capa Silver.
-    destino.write_text(
-        response.text,
-        encoding="utf-8",
-    )
-
-    log.info(
-        "Bronce descargado: endpoint=%s -> %s",
-        endpoint,
-        destino,
-    )
-
-    time.sleep(REQUEST_DELAY_SECONDS)
-
-    return str(destino)
+def land_json(endpoint, parametros, destino):
+    return land_response(endpoint, parametros, destino, fetch, REQUEST_DELAY_SECONDS)
 
 
 @dag(
-    dag_id="f1_strategy_pipeline",
-
-    # Para esta entrega el pipeline se ejecuta manualmente.
-    schedule=None,
-
-    start_date=pendulum.datetime(
-        2026,
-        9,
-        1,
-        tz="America/Argentina/Buenos_Aires",
-    ),
-
-    catchup=False,
-
-    # Los distintos endpoints pueden trabajar en paralelo, pero la cantidad
-    # se limita para respetar el rate limit de OpenF1.
-    max_active_tasks=2,
-
-    tags=[
-        "ciencia-de-datos",
-        "formula-1",
-        "openf1",
-    ],
-
-    doc_md=__doc__,
+    dag_id="f1_strategy_pipeline", schedule=None,
+    start_date=pendulum.datetime(2026, 9, 1, tz="America/Argentina/Buenos_Aires"),
+    catchup=False, max_active_tasks=2, max_active_runs=1,
+    default_args={"retries": 2, "retry_delay": pendulum.duration(seconds=65)},
+    tags=["ciencia-de-datos", "formula-1", "openf1"], doc_md=__doc__,
 )
 def f1_strategy_pipeline():
-
-    # -----------------------------------------------------------------------
-    # 1. Verificación de la fuente
-    # -----------------------------------------------------------------------
-
-    # Antes de comenzar la ingesta se confirma que OpenF1 esté disponible
-    # mediante una consulta pequeña y conocida.
-    @task(
-        retries=2,
-        retry_delay=pendulum.duration(seconds=65),
-    )
-    def check_openf1_source() -> bool:
-        hook = HttpHook(
-            method="GET",
-            http_conn_id=CONN_ID,
-        )
-
-        response = hook.run(
-            endpoint="v1/sessions",
-            data={
-                "year": 2025,
-                "session_type": "Race",
-            },
-        )
-
-        datos = response.json()
-
-        if not datos:
-            raise ValueError(
-                "OpenF1 respondió, pero no devolvió sesiones."
-            )
-
-        log.info(
-            "OpenF1 disponible: %s sesiones encontradas en la prueba.",
-            len(datos),
-        )
-
-        return True
-
-
-    # -----------------------------------------------------------------------
-    # 2. Catálogos generales de Bronce
-    # -----------------------------------------------------------------------
-
-    # Meetings identifica los fines de semana de Gran Premio.
-    # Cada temporada queda almacenada como un lote independiente.
-    @task(
-        retries=2,
-        retry_delay=pendulum.duration(seconds=65),
-    )
-    def land_bronze_meetings() -> list[str]:
-        rutas = []
-
-        for season in SEASONS:
-            destino = (
-                BRONZE_DIR
-                / f"season={season}"
-                / "meetings.json"
-            )
-
-            rutas.append(
-                land_json(
-                    endpoint="meetings",
-                    parametros={
-                        "year": season,
-                    },
-                    destino=destino,
-                )
-            )
-
-        return rutas
-
-
-    # Sessions permite descubrir posteriormente las carreras que componen
-    # cada temporada.
-    @task(
-        retries=2,
-        retry_delay=pendulum.duration(seconds=65),
-    )
-    def land_bronze_sessions() -> list[str]:
-        rutas = []
-
-        for season in SEASONS:
-            destino = (
-                BRONZE_DIR
-                / f"season={season}"
-                / "sessions.json"
-            )
-
-            rutas.append(
-                land_json(
-                    endpoint="sessions",
-                    parametros={
-                        "year": season,
-                        "session_type": "Race",
-                    },
-                    destino=destino,
-                )
-            )
-
-        return rutas
-
-
-    # -----------------------------------------------------------------------
-    # 3. Descubrimiento de carreras
-    # -----------------------------------------------------------------------
-
-    # Esta task no consulta OpenF1.
-    # Lee sessions.json desde Bronce y obtiene sólo la metadata necesaria
-    # para organizar las siguientes descargas.
     @task
-    def discover_race_sessions(
-        rutas_sessions: list[str],
-    ) -> list[dict]:
+    def check_openf1_source():
+        # A complete local Bronze snapshot permits a fully offline rerun.
+        try:
+            hashes = input_hashes(BRONZE_DIR)
+            if {year for year, _ in expected_inventory(BRONZE_DIR)} == set(SEASONS):
+                log.info("Snapshot local completo: %s archivos; no se necesita red", len(hashes))
+                return "local_snapshot"
+        except (OSError, ValueError, KeyError):
+            pass
+        response = fetch("sessions", {"year": SEASONS[-1], "session_type": "Race"})
+        response.raise_for_status()
+        rows, available = bronze_payload(response.json())
+        if not available or not rows:
+            raise ValueError("OpenF1 no devuelve sesiones")
+        return "openf1_available"
 
-        import json
-
-        carreras = []
-
-        for ruta in rutas_sessions:
-            with open(
-                ruta,
-                "r",
-                encoding="utf-8",
-            ) as f:
-                sesiones = json.load(f)
-
-            for sesion in sesiones:
-
-                # OpenF1 también devuelve Sprint cuando se consulta
-                # session_type="Race". Para este dataset sólo se consideran
-                # las carreras principales.
-                if sesion.get("session_name") != "Race":
-                    continue
-
-                # Una sesión cancelada puede existir en el catálogo aunque
-                # nunca haya generado vueltas ni otros datos de carrera.
-                if sesion.get("is_cancelled") is True:
-                    log.info(
-                        "Se omite la sesión cancelada %s de la temporada %s.",
-                        sesion.get("session_key"),
-                        sesion.get("year"),
-                    )
-                    continue
-
-                carreras.append({
-                    "season": int(sesion["year"]),
-                    "meeting_key": int(sesion["meeting_key"]),
-                    "session_key": int(sesion["session_key"]),
-                })
-
-        if not carreras:
-            raise ValueError(
-                "No se encontraron carreras válidas en el Bronce de sesiones."
-            )
-
-        log.info(
-            "Carreras válidas descubiertas para %s: %s",
-            SEASONS,
-            len(carreras),
-        )
-
-        return carreras
-
-
-    # -----------------------------------------------------------------------
-    # 4. Datos de Bronce por carrera
-    # -----------------------------------------------------------------------
-
-    # Cada endpoint tiene su propia task para que el grafo muestre claramente
-    # qué conjunto de datos está siendo descargado y dónde ocurre un fallo.
-
-    @task(
-        retries=2,
-        retry_delay=pendulum.duration(seconds=65),
-    )
-    def land_bronze_drivers(
-        carreras: list[dict],
-    ) -> list[str]:
-
-        rutas = []
-
-        for carrera in carreras:
-            destino = (
-                BRONZE_DIR
-                / f"season={carrera['season']}"
-                / f"session={carrera['session_key']}"
-                / "drivers.json"
-            )
-
-            rutas.append(
-                land_json(
-                    endpoint="drivers",
-                    parametros={
-                        "session_key": carrera["session_key"],
-                    },
-                    destino=destino,
-                )
-            )
-
-        return rutas
-
-
-    @task(
-        retries=2,
-        retry_delay=pendulum.duration(seconds=65),
-    )
-    def land_bronze_laps(
-        carreras: list[dict],
-    ) -> list[str]:
-
-        rutas = []
-
-        for carrera in carreras:
-            destino = (
-                BRONZE_DIR
-                / f"season={carrera['season']}"
-                / f"session={carrera['session_key']}"
-                / "laps.json"
-            )
-
-            rutas.append(
-                land_json(
-                    endpoint="laps",
-                    parametros={
-                        "session_key": carrera["session_key"],
-                    },
-                    destino=destino,
-                )
-            )
-
-        return rutas
-
-
-    @task(
-        retries=2,
-        retry_delay=pendulum.duration(seconds=65),
-    )
-    def land_bronze_stints(
-        carreras: list[dict],
-    ) -> list[str]:
-
-        rutas = []
-
-        for carrera in carreras:
-            destino = (
-                BRONZE_DIR
-                / f"season={carrera['season']}"
-                / f"session={carrera['session_key']}"
-                / "stints.json"
-            )
-
-            rutas.append(
-                land_json(
-                    endpoint="stints",
-                    parametros={
-                        "session_key": carrera["session_key"],
-                    },
-                    destino=destino,
-                )
-            )
-
-        return rutas
-
-
-    @task(
-        retries=2,
-        retry_delay=pendulum.duration(seconds=65),
-    )
-    def land_bronze_pit(
-        carreras: list[dict],
-    ) -> list[str]:
-
-        rutas = []
-
-        for carrera in carreras:
-            destino = (
-                BRONZE_DIR
-                / f"season={carrera['season']}"
-                / f"session={carrera['session_key']}"
-                / "pit.json"
-            )
-
-            rutas.append(
-                land_json(
-                    endpoint="pit",
-                    parametros={
-                        "session_key": carrera["session_key"],
-                    },
-                    destino=destino,
-                )
-            )
-
-        return rutas
-
-
-    @task(
-        retries=2,
-        retry_delay=pendulum.duration(seconds=65),
-    )
-    def land_bronze_weather(
-        carreras: list[dict],
-    ) -> list[str]:
-
-        rutas = []
-
-        for carrera in carreras:
-            destino = (
-                BRONZE_DIR
-                / f"season={carrera['season']}"
-                / f"session={carrera['session_key']}"
-                / "weather.json"
-            )
-
-            rutas.append(
-                land_json(
-                    endpoint="weather",
-                    parametros={
-                        "session_key": carrera["session_key"],
-                    },
-                    destino=destino,
-                )
-            )
-
-        return rutas
-
-
-    @task(
-        retries=2,
-        retry_delay=pendulum.duration(seconds=65),
-    )
-    def land_bronze_positions(
-        carreras: list[dict],
-    ) -> list[str]:
-
-        rutas = []
-
-        for carrera in carreras:
-            destino = (
-                BRONZE_DIR
-                / f"season={carrera['season']}"
-                / f"session={carrera['session_key']}"
-                / "position.json"
-            )
-
-            rutas.append(
-                land_json(
-                    endpoint="position",
-                    parametros={
-                        "session_key": carrera["session_key"],
-                    },
-                    destino=destino,
-                )
-            )
-
-        return rutas
-
-
-    @task(
-        retries=2,
-        retry_delay=pendulum.duration(seconds=65),
-    )
-    def land_bronze_race_control(
-        carreras: list[dict],
-    ) -> list[str]:
-
-        rutas = []
-
-        for carrera in carreras:
-            destino = (
-                BRONZE_DIR
-                / f"season={carrera['season']}"
-                / f"session={carrera['session_key']}"
-                / "race_control.json"
-            )
-
-            rutas.append(
-                land_json(
-                    endpoint="race_control",
-                    parametros={
-                        "session_key": carrera["session_key"],
-                    },
-                    destino=destino,
-                )
-            )
-
-        return rutas
-
-
-    @task(
-        retries=2,
-        retry_delay=pendulum.duration(seconds=65),
-    )
-    def land_bronze_intervals(
-        carreras: list[dict],
-    ) -> list[str]:
-
-        rutas = []
-
-        for carrera in carreras:
-            destino = (
-                BRONZE_DIR
-                / f"season={carrera['season']}"
-                / f"session={carrera['session_key']}"
-                / "intervals.json"
-            )
-
-            rutas.append(
-                land_json(
-                    endpoint="intervals",
-                    parametros={
-                        "session_key": carrera["session_key"],
-                    },
-                    destino=destino,
-                )
-            )
-
-        return rutas
-
-
-    # -----------------------------------------------------------------------
-    # 5. Capa Silver: Transformación y validación
-    # -----------------------------------------------------------------------
-
-    # Lee exclusivamente los datos almacenados en Bronce y genera los datasets
-    # transformados y enriquecidos de la capa Silver junto con las validaciones.
     @task
-    def build_silver_layer() -> dict:
-        import sys
-        if str(PROJECT_ROOT) not in sys.path:
-            sys.path.insert(0, str(PROJECT_ROOT))
+    def land_bronze_meetings():
+        return [land_json("meetings", {"year": year}, BRONZE_DIR / f"season={year}" / "meetings.json") for year in SEASONS]
 
+    @task
+    def land_bronze_sessions():
+        return [land_json("sessions", {"year": year, "session_type": "Race"}, BRONZE_DIR / f"season={year}" / "sessions.json") for year in SEASONS]
+
+    @task
+    def discover_race_sessions(rutas_sessions):
+        races = []
+        for name in rutas_sessions:
+            records, _ = bronze_payload(json.loads(Path(name).read_text(encoding="utf-8")), name)
+            races.extend({"season": s["year"], "session_key": s["session_key"]} for s in records
+                         if s.get("session_name") == "Race" and s.get("is_cancelled") is not True)
+        if not races or len({(r["season"], r["session_key"]) for r in races}) != len(races):
+            raise ValueError("Inventario de carreras vacío o duplicado")
+        return races
+
+    @task
+    def land_endpoint(carreras, endpoint):
+        return [land_json(endpoint, {"session_key": r["session_key"]},
+                          BRONZE_DIR / f"season={r['season']}" / f"session={r['session_key']}" / f"{endpoint}.json")
+                for r in carreras]
+
+    @task
+    def build_silver_layer():
         from src.silver_pipeline import build_all_sessions
+        result = build_all_sessions(BRONZE_DIR, SILVER_DIR)
+        log.info("Silver: %s", result["summary"])
+        return {"release_path": result["release_path"], "release_id": result["release_id"],
+                "processed_sessions": result["summary"]["processed_sessions"]}
 
-        log.info(
-            "Iniciando transformación de Capa Silver desde %s hacia %s",
-            BRONZE_DIR,
-            SILVER_DIR,
-        )
-
-        resultado = build_all_sessions(
-            bronze_dir=BRONZE_DIR,
-            silver_dir=SILVER_DIR,
-        )
-
-        log.info(
-            "Capa Silver finalizada: %s sesiones procesadas, %s filas generadas, %s anomalías detectadas.",
-            resultado["summary"]["processed_sessions"],
-            resultado["summary"]["total_silver_rows"],
-            resultado["summary"]["anomaly_count"],
-        )
-
-        return {
-            "processed_sessions": resultado["summary"]["processed_sessions"],
-            "silver_rows": resultado["summary"]["total_silver_rows"],
-            "anomaly_count": resultado["summary"]["anomaly_count"],
-        }
-
-
-    # -----------------------------------------------------------------------
-    # 6. Validación de Calidad de Salida (Criterios de Entrega 1)
-    # -----------------------------------------------------------------------
-
-    # Verifica automáticamente los 7 criterios de calidad exigidos por la cátedra
-    # sobre el dataset CSV producido por la capa Silver.
     @task
-    def validate(silver_info: dict) -> dict:
-        import csv
+    def validate(silver_info):
+        from src.quality import validate_csv
+        path = Path(silver_info["release_path"])
+        manifest = verify_release(path)
+        if manifest["release_id"] != silver_info["release_id"]:
+            raise ValueError("La salida no corresponde a esta ejecución")
+        report = validate_csv(path / "f1_silver_dataset.csv")
+        result = {k: report[k] for k in ("status", "total_rows", "total_cols", "duplicate_key_count", "empty_columns", "eligible_labeled_rows")}
+        log.info("Calidad: %s; CSV: %s", result, path / "f1_silver_dataset.csv")
+        return result
 
-        csv_path = SILVER_DIR / "f1_silver_dataset.csv"
-        if not csv_path.exists():
-            raise FileNotFoundError(
-                f"No se encontró el archivo CSV de salida en {csv_path}"
-            )
-
-        rows = []
-        with csv_path.open("r", encoding="utf-8") as f:
-            reader = csv.DictReader(f)
-            fieldnames = reader.fieldnames or []
-            for r in reader:
-                rows.append(r)
-
-        total_rows = len(rows)
-        total_cols = len(fieldnames)
-
-        # 1. Clave primaria sin duplicados (session_key + driver_number + lap_number)
-        keys = [(r["session_key"], r["driver_number"], r["lap_number"]) for r in rows]
-        unique_keys = len(set(keys))
-        if unique_keys != total_rows:
-            raise ValueError(
-                f"Fallo de Calidad [1]: Clave duplicada detectada. Claves únicas: {unique_keys}, Total filas: {total_rows}"
-            )
-        log.info(
-            "[1/6] Clave sin duplicados: OK (is_unique=True, %s filas únicas).",
-            total_rows,
-        )
-
-        # 2. Volumen suficiente (> 1.000 filas)
-        if total_rows <= 1000:
-            raise ValueError(
-                f"Fallo de Calidad [2]: Volumen insuficiente. Filas: {total_rows} (requerido > 1000)"
-            )
-        log.info(
-            "[2/6] Volumen suficiente: OK (%s filas > 1.000).",
-            total_rows,
-        )
-
-        # 3. Ancho suficiente (>= 5 columnas útiles)
-        if total_cols < 5:
-            raise ValueError(
-                f"Fallo de Calidad [3]: Ancho insuficiente. Columnas: {total_cols} (requerido >= 5)"
-            )
-        log.info(
-            "[3/6] Ancho suficiente: OK (%s columnas >= 5).",
-            total_cols,
-        )
-
-        # 4. Mezcla de tipos (numéricas, categóricas, booleanas, fechas)
-        has_numeric = False
-        has_string = False
-        has_date = False
-        has_bool = False
-
-        for col in fieldnames:
-            samples = [r[col] for r in rows if r[col] != ""]
-            if not samples:
-                continue
-            if all(s in ("True", "False") for s in samples[:50]):
-                has_bool = True
-            elif all(s.replace(".", "", 1).replace("-", "", 1).isdigit() for s in samples[:50]):
-                has_numeric = True
-            elif any("T" in s and ("+" in s or "Z" in s or "-" in s) for s in samples[:20]):
-                has_date = True
-            else:
-                has_string = True
-
-        if not (has_numeric and has_string and has_date and has_bool):
-            raise ValueError(
-                f"Fallo de Calidad [4]: Mezcla de tipos incompleta (numeric={has_numeric}, string={has_string}, date={has_date}, bool={has_bool})"
-            )
-        log.info(
-            "[4/6] Mezcla de tipos: OK (detectadas numéricas, categóricas, booleanas y fechas)."
-        )
-
-        # 5. Nulos conocidos
-        null_counts = {
-            col: sum(1 for r in rows if r[col] == "" or r[col] is None)
-            for col in fieldnames
-        }
-        sorted_nulls = sorted(null_counts.items(), key=lambda x: x[1], reverse=True)
-        top_nulls_summary = {
-            col: f"{(count / total_rows) * 100:.2f}%" for col, count in sorted_nulls[:10]
-        }
-        log.info(
-            "[5/6] Nulos analizados: OK. Top 10 columnas con nulos: %s",
-            top_nulls_summary,
-        )
-
-        # 6. Sin columnas vacías (ninguna al 100% de nulos)
-        empty_cols = [col for col, count in null_counts.items() if count == total_rows]
-        if empty_cols:
-            raise ValueError(
-                f"Fallo de Calidad [6]: Columnas 100%% vacías detectadas: {empty_cols}"
-            )
-        log.info("[6/6] Sin columnas vacías: OK (0 columnas al 100%% de nulos).")
-
-        log.info(
-            "=== VALIDACIÓN DE CALIDAD COMPLETADA EXITOSAMENTE: TODOS LOS CRITERIOS CUMPLIDOS ==="
-        )
-
-        return {
-            "status": "passed",
-            "total_rows": total_rows,
-            "total_cols": total_cols,
-            "is_unique_key": True,
-            "empty_columns_count": len(empty_cols),
-            "top_nulls": top_nulls_summary,
-        }
-
-
-    # -----------------------------------------------------------------------
-    # 7. Grafo del Pipeline (Bronce -> Silver -> Validate)
-    # -----------------------------------------------------------------------
-
-    fuente_ok = check_openf1_source()
-
-    meetings_bronze = land_bronze_meetings()
-    sessions_bronze = land_bronze_sessions()
-
-    # Estas dos tasks no reciben información del chequeo de fuente.
-    # La dependencia explícita representa solamente el orden del pipeline.
-    fuente_ok >> [
-        meetings_bronze,
-        sessions_bronze,
-    ]
-
-    carreras = discover_race_sessions(
-        sessions_bronze
-    )
-
-    # Todos estos endpoints necesitan conocer las carreras, pero no dependen
-    # unos de otros. Airflow puede ejecutarlos independientemente respetando
-    # el límite de concurrencia configurado en el DAG.
-    bronze_tasks = [
-        land_bronze_drivers(carreras),
-        land_bronze_laps(carreras),
-        land_bronze_stints(carreras),
-        land_bronze_pit(carreras),
-        land_bronze_weather(carreras),
-        land_bronze_positions(carreras),
-        land_bronze_race_control(carreras),
-        land_bronze_intervals(carreras),
-    ]
-
-    silver_task = build_silver_layer()
-    validation_task = validate(silver_task)
-
-    # La capa Silver se ejecuta una vez concluida la ingesta de todas las fuentes Bronce,
-    # y la task validate comprueba los criterios de calidad sobre la salida producida.
-    bronze_tasks >> silver_task >> validation_task
+    source = check_openf1_source()
+    meetings, sessions = land_bronze_meetings(), land_bronze_sessions()
+    source >> [meetings, sessions]
+    races = discover_race_sessions(sessions)
+    bronze_tasks = [land_endpoint.override(task_id="land_bronze_" + ("positions" if endpoint == "position" else endpoint))(races, endpoint)
+                    for endpoint in REQUIRED_SOURCES]
+    silver = build_silver_layer()
+    [meetings, *bronze_tasks] >> silver
+    validate(silver)
 
 
 f1_strategy_pipeline()

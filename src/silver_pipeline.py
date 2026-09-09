@@ -19,6 +19,10 @@ from pathlib import Path
 from statistics import median
 from typing import Any
 
+from src.io_utils import bronze_payload, timestamp
+from src.track_state import TrackTimeline
+from src.decisions import enrich_decisions, decision_summary
+
 
 DEFAULT_BRONZE = Path("include/output/bronze")
 DEFAULT_SILVER = Path("include/output/silver")
@@ -34,21 +38,11 @@ def read_json(path: Path) -> Any:
 def rows_from_json(path: Path) -> tuple[list[dict[str, Any]], bool]:
     """Return rows and whether the Bronze response contains usable data."""
     value = read_json(path)
-    if isinstance(value, list):
-        return value, True
-    if isinstance(value, dict) and value.get("detail") == "No results found":
-        return [], False
-    return [], False
+    return bronze_payload(value, str(path))
 
 
 def parse_timestamp(value: Any) -> datetime | None:
-    if not value or not isinstance(value, str):
-        return None
-    try:
-        parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
-    except ValueError:
-        return None
-    return parsed if parsed.tzinfo else parsed.replace(tzinfo=timezone.utc)
+    return timestamp(value)
 
 
 def iso(value: datetime | None) -> str | None:
@@ -165,85 +159,7 @@ def _stint_for_lap(
 def _race_control_state(
     events: list[dict[str, Any]], lap: dict[str, Any]
 ) -> dict[str, Any]:
-    lap_time = parse_timestamp(lap.get("date_start"))
-    lap_number = lap.get("lap_number")
-    usable = []
-    for event in events:
-        event_time = parse_timestamp(event.get("date"))
-        event_lap = event.get("lap_number")
-        if lap_time is not None:
-            if event_time is not None and event_time <= lap_time:
-                usable.append(event)
-        elif (
-            event_lap is not None and lap_number is not None and event_lap <= lap_number
-        ):
-            usable.append(event)
-    usable.sort(
-        key=lambda row: (
-            parse_timestamp(row.get("date"))
-            or datetime.min.replace(tzinfo=timezone.utc)
-        )
-    )
-    safety_car = virtual_safety_car = yellow = red = False
-    yellow_scope = None
-    session_status = None
-    for event in usable:
-        message = str(event.get("message") or "").upper()
-        flag = str(event.get("flag") or "").upper()
-        category = str(event.get("category") or "").upper()
-        is_virtual_safety_car = "VIRTUAL SAFETY CAR" in message
-        is_safety_car_event = category == "SAFETYCAR" and not is_virtual_safety_car
-        if is_virtual_safety_car and "DEPLOYED" in message:
-            virtual_safety_car = True
-        elif is_virtual_safety_car and (
-            "ENDING" in message or "TRACK CLEAR" in message
-        ):
-            virtual_safety_car = False
-        if is_safety_car_event and "DEPLOYED" in message:
-            safety_car = True
-            virtual_safety_car = False
-        elif is_safety_car_event and any(
-            token in message for token in ("ENDING", "IN THIS LAP", "TRACK CLEAR")
-        ):
-            safety_car = False
-        if flag in {"YELLOW", "DOUBLE YELLOW"} or "YELLOW FLAG" in message:
-            yellow = True
-            yellow_scope = event.get("scope")
-        if flag == "CLEAR" or message.startswith("CLEAR "):
-            yellow = False
-            yellow_scope = None
-        if flag == "RED" or (
-            category == "FLAG"
-            and message.startswith("RED FLAG")
-            and not message.startswith("CHEQUERED FLAG")
-        ):
-            red = True
-        if flag == "GREEN" and "PIT EXIT OPEN" not in message:
-            yellow = red = False
-            yellow_scope = None
-        if "SESSION RESUMED" in message:
-            yellow = red = False
-            yellow_scope = None
-        if category == "SESSIONSTATUS":
-            session_status = event.get("message") or event.get("flag")
-        if message.startswith("CHEQUERED FLAG"):
-            session_status = "SESSION FINISHED"
-            red = False
-    recent = usable[-1] if usable else None
-    return {
-        "safety_car_active": safety_car,
-        "virtual_safety_car_active": virtual_safety_car,
-        "yellow_flag_active": yellow,
-        "yellow_flag_scope": yellow_scope,
-        "red_flag_active": red,
-        "session_status": session_status,
-        "race_control_event_count": len(usable),
-        "race_control_recent_event": recent.get("message") if recent else None,
-        "race_control_recent_event_timestamp": recent.get("date") if recent else None,
-        "race_control_join_status": (
-            "timestamp_asof" if lap_time is not None else "lap_number_fallback"
-        ),
-    }
+    return TrackTimeline(events).at(lap.get("date_start"))
 
 
 def build_session(
@@ -282,7 +198,15 @@ def build_session(
             session_dir / f"{name}.json"
         )
 
-    laps = source_rows["laps"]
+    laps = sorted(source_rows["laps"], key=lambda r: (r["driver_number"], r["lap_number"]))
+    if not laps:
+        raise ValueError(f"Race has no laps: {season}/{session_key}")
+    if len({(r["driver_number"], r["lap_number"]) for r in laps}) != len(laps):
+        raise ValueError(f"Duplicate Bronze lap keys: {session_key}")
+    for name, records in source_rows.items():
+        if any(r.get("session_key") != session_key for r in records):
+            raise ValueError(f"Foreign session in {name}: {session_key}")
+    timeline = TrackTimeline(source_rows["race_control"])
     max_laps = max((row.get("lap_number") or 0 for row in laps), default=0)
     weather = source_rows["weather"]
     positions = source_rows["position"]
@@ -456,9 +380,10 @@ def build_session(
             - (last_laps.get(lap.get("driver_number"), max_laps)),
         }
         row["possible_early_exit"] = row["driver_last_lap_observed"] < max_laps
-        row.update(_race_control_state(source_rows["race_control"], lap))
+        row.update(timeline.at(lap_time))
         output.append(row)
 
+    enrich_decisions(output, source_rows, availability)
     destination = silver_dir / f"season={season}" / f"session={session_key}"
     destination.mkdir(parents=True, exist_ok=True)
     output_path = destination / "laps.json"
@@ -512,15 +437,7 @@ def build_session(
                 "intervals": 0,
                 "race_control": 0,
             },
-            "race_control_timestamp_assignments": sum(
-                1
-                for lap in laps
-                if parse_timestamp(lap.get("date_start")) is not None
-                for event in source_rows["race_control"]
-                if parse_timestamp(event.get("date")) is not None
-                and parse_timestamp(event.get("date"))
-                <= parse_timestamp(lap.get("date_start"))
-            ),
+            "race_control_timestamp_assignments": sum(r["race_control_event_count"] for r in output),
             "race_control_future_assignments": 0,
             "race_control_fallback_rows": sum(
                 parse_timestamp(lap.get("date_start")) is None for lap in laps
@@ -556,7 +473,7 @@ def validate(
             bool(
                 row["weather_timestamp"]
                 and row["lap_date_start"]
-                and row["weather_timestamp"] > row["lap_date_start"]
+                and parse_timestamp(row["weather_timestamp"]) > parse_timestamp(row["lap_date_start"])
             )
             for row in rows
         ),
@@ -564,7 +481,7 @@ def validate(
             bool(
                 row["position_timestamp"]
                 and row["lap_date_start"]
-                and row["position_timestamp"] > row["lap_date_start"]
+                and parse_timestamp(row["position_timestamp"]) > parse_timestamp(row["lap_date_start"])
             )
             for row in rows
         ),
@@ -572,7 +489,7 @@ def validate(
             bool(
                 row["interval_timestamp"]
                 and row["lap_date_start"]
-                and row["interval_timestamp"] > row["lap_date_start"]
+                and parse_timestamp(row["interval_timestamp"]) > parse_timestamp(row["lap_date_start"])
             )
             for row in rows
         ),
@@ -580,7 +497,7 @@ def validate(
             bool(
                 row["race_control_recent_event_timestamp"]
                 and row["lap_date_start"]
-                and row["race_control_recent_event_timestamp"] > row["lap_date_start"]
+                and parse_timestamp(row["race_control_recent_event_timestamp"]) > parse_timestamp(row["lap_date_start"])
             )
             for row in rows
         ),
@@ -775,11 +692,17 @@ def _session_anomalies(
     return anomalies
 
 
-def build_all_sessions(
+def _build_all_sessions(
     bronze_dir: Path = DEFAULT_BRONZE,
     silver_dir: Path = DEFAULT_SILVER,
 ) -> dict[str, Any]:
+    from src.release import expected_inventory
     inventory = _session_inventory(bronze_dir)
+    expected = expected_inventory(bronze_dir)
+    missing = sorted(set(expected) - set(inventory))
+    extra = sorted(set(inventory) - set(expected))
+    if missing or extra or not inventory:
+        raise ValueError(f"Incomplete inventory: missing={missing}, extra={extra}")
     session_reports = []
     anomalies = []
     total_rows: list[dict[str, Any]] = []
@@ -788,7 +711,7 @@ def build_all_sessions(
             bronze_dir, silver_dir, season, session_key
         )
         report = validate(rows, metadata["bronze_lap_count"], metadata)
-        report["silver_path"] = str(output_path)
+        report["silver_path"] = output_path.relative_to(silver_dir).as_posix()
         report_path = output_path.parent / "validation.json"
         with report_path.open("w", encoding="utf-8") as handle:
             json.dump(report, handle, ensure_ascii=False, indent=2)
@@ -804,12 +727,12 @@ def build_all_sessions(
     ]
     source_names = ("stints", "weather", "position", "intervals", "pit", "race_control")
     global_summary = {
-        "expected_sessions": 70,
+        "expected_sessions": len(expected),
         "processed_sessions": len(session_reports),
         "sessions_by_season": dict(
             Counter(report["session"]["year"] for report in session_reports)
         ),
-        "missing_sessions": [],
+        "missing_sessions": missing,
         "total_bronze_rows": total_bronze,
         "total_silver_rows": total_silver,
         "row_difference": total_silver - total_bronze,
@@ -919,6 +842,7 @@ def build_all_sessions(
             for name in source_names
         },
         "anomaly_count": len(anomalies),
+        "decisions": decision_summary(total_rows),
     }
     silver_dir.mkdir(parents=True, exist_ok=True)
     report_path = silver_dir / "global_validation.json"
@@ -938,6 +862,11 @@ def build_all_sessions(
         "anomalies": anomalies,
         "reports": session_reports,
     }
+
+
+def build_all_sessions(bronze_dir=DEFAULT_BRONZE, silver_dir=DEFAULT_SILVER):
+    from src.release import publish_release
+    return publish_release(bronze_dir, silver_dir)
 
 
 def main() -> None:
@@ -960,9 +889,10 @@ def main() -> None:
             json.dumps(
                 {
                     "global_validation": str(
-                        args.silver_dir / "global_validation.json"
+                        Path(result["release_path"]) / "global_validation.json"
                     ),
-                    "anomalies": str(args.silver_dir / "anomalies.json"),
+                    "anomalies": str(Path(result["release_path"]) / "anomalies.json"),
+                    "release_path": result["release_path"],
                     "processed_sessions": result["summary"]["processed_sessions"],
                     "silver_rows": result["summary"]["total_silver_rows"],
                 },
