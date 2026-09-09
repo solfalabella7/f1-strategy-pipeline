@@ -803,17 +803,21 @@ def f1_strategy_pipeline():
 
         origen = Path(ruta_validada) if ruta_validada else SILVER_DIR / "_consolidado.csv"
         destino = SILVER_DIR / "f1_silver_dataset.csv"
-        shutil.copy(origen, destino)
+
+        # Publica el dataset oficial
+        shutil.copyfile(origen, destino)
         log.info("Dataset oficial publicado en %s", destino)
 
-        # Guardamos además la versión fechada con la corrida (patrón canónico de la materia)
+        # Guarda además una copia fechada de la corrida
         dag_run = context.get("dag_run")
         if dag_run:
             momento = dag_run.logical_date or dag_run.run_after
+
             if momento:
                 ds = momento.date().isoformat()
                 destino_fechado = SILVER_DIR / f"f1_silver_{ds}.csv"
-                shutil.copy(origen, destino_fechado)
+
+                shutil.copyfile(origen, destino_fechado)
                 log.info("Copia fechada respaldada en %s", destino_fechado)
 
         return str(destino)
