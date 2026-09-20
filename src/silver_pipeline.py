@@ -162,6 +162,80 @@ def _stint_for_lap(
     return None, "no_match"
 
 
+def resolve_driver_pits(
+    driver_pits: list[dict[str, Any]],
+    driver_stints: list[dict[str, Any]],
+) -> dict[int, dict[str, Any]]:
+    """Match all pit stops of a single driver with their stints.
+
+    Returns a mapping from lap_number to pit stop details:
+    - pit_stop_number: ordinal number of the pit stop (1, 2, ...)
+    - stint_in: stint row active when entering the pit
+    - stint_out: stint row active after the pit stop
+    - current_compound: compound used before entering the pit
+    - new_compound: compound fitted during the pit stop
+    - stint_in_number: stint number before pit stop
+    - new_stint_number: stint number after pit stop
+    - tyre_age_at_start: tyre age at start of current stint
+    - new_tyre_age_at_start: tyre age at start of new stint
+    - pit_record: raw pit record
+    """
+    pits_sorted = sorted(
+        driver_pits,
+        key=lambda p: (p.get("lap_number") or 0, p.get("date") or ""),
+    )
+    stints_sorted = sorted(
+        driver_stints,
+        key=lambda s: (s.get("stint_number") or 0, s.get("lap_start") or 0),
+    )
+
+    details_by_lap: dict[int, dict[str, Any]] = {}
+    for pit_idx, p in enumerate(pits_sorted):
+        p_lap = p.get("lap_number")
+        if p_lap is None:
+            continue
+
+        stint_in = None
+        stint_out = None
+
+        if len(stints_sorted) == len(pits_sorted) + 1:
+            stint_in = stints_sorted[pit_idx]
+            stint_out = stints_sorted[pit_idx + 1]
+        else:
+            candidates_out = [
+                s
+                for s in stints_sorted
+                if (s.get("lap_start") or 0) > p_lap
+                or (
+                    (s.get("lap_start") or 0) == p_lap
+                    and (s.get("stint_number") or 0) > 1
+                )
+            ]
+            if candidates_out:
+                stint_out = candidates_out[0]
+                out_idx = stints_sorted.index(stint_out)
+                if out_idx > 0:
+                    stint_in = stints_sorted[out_idx - 1]
+            else:
+                stint_in = stints_sorted[-1] if stints_sorted else None
+                stint_out = None
+
+        details_by_lap[p_lap] = {
+            "pit_stop_number": pit_idx + 1,
+            "stint_in": stint_in,
+            "stint_out": stint_out,
+            "stint_in_number": stint_in.get("stint_number") if stint_in else None,
+            "current_compound": stint_in.get("compound") if stint_in else None,
+            "tyre_age_at_start": stint_in.get("tyre_age_at_start") if stint_in else None,
+            "new_stint_number": stint_out.get("stint_number") if stint_out else None,
+            "new_compound": stint_out.get("compound") if stint_out else None,
+            "new_tyre_age_at_start": stint_out.get("tyre_age_at_start") if stint_out else None,
+            "pit_record": p,
+        }
+
+    return details_by_lap
+
+
 def _race_control_state(
     events: list[dict[str, Any]], lap: dict[str, Any]
 ) -> dict[str, Any]:
@@ -308,7 +382,23 @@ def build_session(
         for driver in lap_counts
     }
 
+    pits_by_driver: dict[Any, list[dict[str, Any]]] = {}
+    for p in source_rows["pit"]:
+        pits_by_driver.setdefault(p.get("driver_number"), []).append(p)
+
+    stints_by_driver: dict[Any, list[dict[str, Any]]] = {}
+    for s in source_rows["stints"]:
+        stints_by_driver.setdefault(s.get("driver_number"), []).append(s)
+
+    pit_details_by_key: dict[tuple[Any, Any], dict[str, Any]] = {}
+    for d_num, d_pits in pits_by_driver.items():
+        d_stints = stints_by_driver.get(d_num, [])
+        d_details = resolve_driver_pits(d_pits, d_stints)
+        for p_lap, det in d_details.items():
+            pit_details_by_key[(d_num, p_lap)] = det
+
     output: list[dict[str, Any]] = []
+    pit_output: list[dict[str, Any]] = []
     for lap in laps:
         lap_time = parse_timestamp(lap.get("date_start"))
         driver_key = (session_key, lap.get("driver_number"))
@@ -459,6 +549,22 @@ def build_session(
         row.update(_race_control_state(source_rows["race_control"], lap))
         output.append(row)
 
+        if (lap.get("driver_number"), lap.get("lap_number")) in pit_details_by_key:
+            pit_det = pit_details_by_key[(lap.get("driver_number"), lap.get("lap_number"))]
+            pit_row = dict(row)
+            pit_row["pit_stop_number"] = pit_det["pit_stop_number"]
+            if pit_det["current_compound"] is not None:
+                pit_row["current_compound"] = pit_det["current_compound"]
+            if pit_det["stint_in_number"] is not None:
+                pit_row["stint_number"] = pit_det["stint_in_number"]
+            if pit_det["tyre_age_at_start"] is not None:
+                pit_row["tyre_age_at_start"] = pit_det["tyre_age_at_start"]
+            pit_row["new_stint_number"] = pit_det["new_stint_number"]
+            pit_row["new_compound"] = pit_det["new_compound"]
+            pit_row["new_tyre_age_at_start"] = pit_det["new_tyre_age_at_start"]
+            pit_row["pit_stop"] = True
+            pit_output.append(pit_row)
+
     destination = silver_dir / f"season={season}" / f"session={session_key}"
     destination.mkdir(parents=True, exist_ok=True)
     output_path = destination / "laps.json"
@@ -470,6 +576,17 @@ def build_session(
             writer = csv.DictWriter(handle, fieldnames=list(output[0].keys()))
             writer.writeheader()
             writer.writerows(output)
+
+    pit_output_path = destination / "pit_stops.json"
+    with pit_output_path.open("w", encoding="utf-8") as handle:
+        json.dump(pit_output, handle, ensure_ascii=False, indent=2)
+    if pit_output:
+        pit_csv_path = destination / "pit_stops.csv"
+        with pit_csv_path.open("w", encoding="utf-8", newline="") as handle:
+            writer = csv.DictWriter(handle, fieldnames=list(pit_output[0].keys()))
+            writer.writeheader()
+            writer.writerows(pit_output)
+
     return (
         output_path,
         output,
@@ -478,6 +595,12 @@ def build_session(
             "session": session,
             "meeting": meeting,
             "bronze_lap_count": len(laps),
+            "bronze_pit_count": len(source_rows["pit"]),
+            "silver_pit_count": len(pit_output),
+            "pit_compounds_matched": sum(
+                r.get("new_compound") is not None for r in pit_output
+            ),
+            "pit_output_path": str(pit_output_path),
             "source_counts": {name: len(source_rows[name]) for name in source_rows},
             "source_available": availability,
             "temporal_join_evaluated": {
@@ -589,6 +712,8 @@ def validate(
         "session": source_meta["session"],
         "bronze_lap_count": bronze_count,
         "silver_row_count": len(rows),
+        "bronze_pit_count": source_meta.get("bronze_pit_count", 0),
+        "silver_pit_count": source_meta.get("silver_pit_count", 0),
         "row_count_difference": len(rows) - bronze_count,
         "duplicate_key_count": duplicate_keys,
         "stints": {
@@ -804,23 +929,38 @@ def consolidate_sessions(
     silver_dir: Path = DEFAULT_SILVER,
     bronze_dir: Path = DEFAULT_BRONZE,
     output_filename: str = "_consolidado.csv",
+    pit_output_filename: str | None = None,
 ) -> Path:
-    """Capa Silver - Consolidación: junta todas las sesiones en un único dataset, deduplica y genera _consolidado.csv."""
+    """Capa Silver - Consolidación: junta todas las sesiones en datasets consolidados, deduplica y genera _consolidado.csv y _consolidado_pit_stops.csv."""
+    if pit_output_filename is None:
+        pit_output_filename = (
+            "f1_silver_pit_stops.csv"
+            if output_filename == "f1_silver_dataset.csv"
+            else "_consolidado_pit_stops.csv"
+        )
     inventory = _session_inventory(bronze_dir)
     session_reports = []
     anomalies = []
     total_rows: list[dict[str, Any]] = []
+    total_pit_rows: list[dict[str, Any]] = []
 
     for season, session_key in inventory:
-        session_path = silver_dir / f"season={season}" / f"session={session_key}" / "laps.json"
+        session_dir = silver_dir / f"season={season}" / f"session={session_key}"
+        session_path = session_dir / "laps.json"
+        pit_path = session_dir / "pit_stops.json"
         if not session_path.exists():
             continue
         rows = read_json(session_path)
-        val_path = session_path.parent / "validation.json"
+        val_path = session_dir / "validation.json"
         report = read_json(val_path) if val_path.exists() else {}
         session_reports.append(report)
         anomalies.extend(_session_anomalies(report, rows))
         total_rows.extend(rows)
+
+        if pit_path.exists():
+            p_rows = read_json(pit_path)
+            if isinstance(p_rows, list):
+                total_pit_rows.extend(p_rows)
 
     # Deduplicación explícita por clave primaria (session_key, driver_number, lap_number)
     dedup_dict = {}
@@ -828,6 +968,12 @@ def consolidate_sessions(
         key = (row.get("session_key"), row.get("driver_number"), row.get("lap_number"))
         dedup_dict[key] = row
     dedup_rows = list(dedup_dict.values())
+
+    dedup_pit_dict = {}
+    for row in total_pit_rows:
+        key = (row.get("session_key"), row.get("driver_number"), row.get("lap_number"))
+        dedup_pit_dict[key] = row
+    dedup_pit_rows = list(dedup_pit_dict.values())
 
     total_bronze = sum(report.get("bronze_lap_count", 0) for report in session_reports)
     total_silver = len(dedup_rows)
@@ -853,6 +999,16 @@ def consolidate_sessions(
             "intervals_pct": round(100 * sum(r.get("has_interval", False) for r in dedup_rows) / total_silver, 2) if total_silver else 0,
             "pit_available_pct": round(100 * sum(r.get("pit_data_available", False) for r in dedup_rows) / total_silver, 2) if total_silver else 0,
             "race_control_rows_pct": round(100 * sum(bool(r.get("race_control_event_count", 0)) for r in dedup_rows) / total_silver, 2) if total_silver else 0,
+        },
+        "pit_stops": {
+            "total_bronze_pits": sum(report.get("bronze_pit_count", 0) for report in session_reports),
+            "total_silver_pit_rows": len(dedup_pit_rows),
+            "with_new_compound": sum(r.get("new_compound") is not None for r in dedup_pit_rows),
+            "without_new_compound": sum(r.get("new_compound") is None for r in dedup_pit_rows),
+            "new_compound_pct": round(100 * sum(r.get("new_compound") is not None for r in dedup_pit_rows) / len(dedup_pit_rows), 2) if dedup_pit_rows else 0,
+            "duplicate_pit_keys": len(total_pit_rows) - len(dedup_pit_rows),
+            "compounds_in": dict(Counter(r.get("current_compound") for r in dedup_pit_rows if r.get("current_compound"))),
+            "compounds_out": dict(Counter(r.get("new_compound") for r in dedup_pit_rows if r.get("new_compound"))),
         },
         "position": {
             "available": sum(r.get("position_available", False) for r in dedup_rows),
@@ -910,6 +1066,13 @@ def consolidate_sessions(
             writer.writeheader()
             writer.writerows(dedup_rows)
 
+    output_pit_csv = silver_dir / pit_output_filename
+    if dedup_pit_rows:
+        with output_pit_csv.open("w", encoding="utf-8", newline="") as handle:
+            writer = csv.DictWriter(handle, fieldnames=list(dedup_pit_rows[0].keys()))
+            writer.writeheader()
+            writer.writerows(dedup_pit_rows)
+
     return output_csv
 
 
@@ -917,8 +1080,16 @@ def build_all_sessions(
     bronze_dir: Path = DEFAULT_BRONZE,
     silver_dir: Path = DEFAULT_SILVER,
 ) -> dict[str, Any]:
+    import shutil
     refine_all_sessions(bronze_dir, silver_dir)
     csv_path = consolidate_sessions(silver_dir, bronze_dir, output_filename="f1_silver_dataset.csv")
+    pit_csv_path = silver_dir / "f1_silver_pit_stops.csv"
+
+    # Also keep _consolidado.csv and _consolidado_pit_stops.csv in sync
+    shutil.copyfile(csv_path, silver_dir / "_consolidado.csv")
+    if pit_csv_path.exists():
+        shutil.copyfile(pit_csv_path, silver_dir / "_consolidado_pit_stops.csv")
+
     global_validation = read_json(silver_dir / "global_validation.json")
     anomalies = read_json(silver_dir / "anomalies.json")
     return {
@@ -954,6 +1125,7 @@ def main() -> None:
                     "anomalies": str(args.silver_dir / "anomalies.json"),
                     "processed_sessions": result["summary"]["processed_sessions"],
                     "silver_rows": result["summary"]["total_silver_rows"],
+                    "pit_stops_rows": result["summary"].get("pit_stops", {}).get("total_silver_pit_rows"),
                 },
                 indent=2,
             )
@@ -972,6 +1144,7 @@ def main() -> None:
                 "silver": str(output_path),
                 "validation": str(report_path),
                 "rows": len(rows),
+                "pit_stops": metadata.get("silver_pit_count", 0),
             },
             indent=2,
         )

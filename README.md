@@ -1,47 +1,38 @@
 # f1-strategy-pipeline
 
-Pipeline de datos para analizar estrategias de neumáticos
-de Fórmula 1 utilizando OpenF1, Apache Airflow y PostgreSQL.
 Pipeline de datos para analizar y modelar estrategias de neumáticos de Fórmula 1 utilizando la API pública [OpenF1](https://openf1.org/), Apache Airflow y PostgreSQL.
 
-## Tecnologías
 ---
 
-- Python
-- Apache Airflow
-- PostgreSQL
-- Docker
-- OpenF1 API
 ## 🏎️ Descripción del Proyecto
 
-## Arquitectura
-El objetivo de este proyecto es construir un dataset enriquecido y analítico orientado a predecir y evaluar decisiones de paradas en boxes, degradación de neumáticos y ritmo de carrera.
+El objetivo de este proyecto es construir un pipeline de datos robusto, reproducible y validado según los principios de **DataOps** y arquitectura **Medallion (Data Lakehouse)** para analizar decisiones de paradas en boxes, degradación de neumáticos y ritmo de carrera en las temporadas 2023, 2024 y 2025.
 
-OpenF1 API
-    ↓
-Airflow
-    ↓
-PostgreSQL
-    ↓
-Feature Engineering
-    ↓
-Modelo de decisión
-El pipeline sigue una **arquitectura Medallion (Data Lakehouse)**:
+El pipeline genera **dos datasets analíticos complementarios en la capa Silver**:
+
+1. **`f1_silver_dataset.csv` (Dataset de Vueltas)**:  
+   - **Unidad de análisis:** 1 fila = 1 vuelta de un piloto en una carrera.
+   - **Dimensiones:** 77.373 filas × 89 columnas.
+   - **Clave primaria:** `(session_key, driver_number, lap_number)` (0 duplicados).
+
+2. **`f1_silver_pit_stops.csv` (Dataset de Paradas en Boxes)**:  
+   - **Unidad de análisis:** 1 fila = 1 parada en boxes de un vehículo en una carrera.
+   - **Dimensiones:** 2.333 filas × 93 columnas.
+   - **Clave primaria:** `(session_key, driver_number, lap_number, pit_index)` (0 duplicados).
+   - **Variable resuelta:** `new_compound` (compuesto de neumático montado tras la parada, determinado emparejando la detención con el stint de salida sin asumir cambios arbitrarios).
 
 ```
 OpenF1 API (v1)
       │
-      ▼ (Ingesta HTTP con control de rate-limit e idempotencia)
+      ▼ (Ingesta HTTP con control de rate-limit, reintentos e idempotencia)
 [Capa Bronce] ───► JSONs inmutables en include/output/bronze/
       │
-      ▼ (Limpieza determinística, uniones temporales As-Of y validaciones)
-[Capa Silver] ───► laps.json enriquecidos y reportes de calidad en include/output/silver/
+      ▼ (Limpieza determinística, uniones temporales As-Of y resolución de paradas/stints)
+[Capa Silver] ───► laps.csv / pit_stops.csv y reportes de calidad en include/output/silver/
       │
-      ▼ (Almacenamiento relacional estructurado e indexado)
-[PostgreSQL 16] ──► Esquema analítico (circuits, sessions, laps, stints, weather...)
-      │
-      ▼
-[Feature Engineering & Modelos Predictivos]
+      ├───────────────┬─────────────────┐
+      ▼               ▼                 ▼
+f1_silver_dataset.csv  f1_silver_pit_stops.csv  PostgreSQL 16 (Esquema relacional)
 ```
 
 ---
@@ -130,26 +121,31 @@ El módulo [`src/silver_pipeline.py`](src/silver_pipeline.py) es completamente d
   ```bash
   python -m src.silver_pipeline --season 2024 --session-key 9550
   ```
-  Genera `laps.json` y el reporte de calidad `validation.json` en `include/output/silver/season=2024/session=9550/`.
+  Genera `laps.json`, `laps.csv`, `pit_stops.json`, `pit_stops.csv` y el reporte de calidad `validation.json` en `include/output/silver/season=2024/session=9550/`.
 
-* **Procesar todas las sesiones disponibles en Bronce:**
+* **Procesar todas las sesiones disponibles en Bronce (70 carreras):**
   ```bash
   python -m src.silver_pipeline --all
   ```
-  Genera la capa Silver para cada sesión junto con los reportes consolidados `global_validation.json` y `anomalies.json`.
+  Genera la capa Silver para cada sesión, consolida `f1_silver_dataset.csv` y `f1_silver_pit_stops.csv`, y genera `global_validation.json` y `anomalies.json`.
+
+* **Verificar los 7 Criterios de Calidad de la Cátedra:**
+  ```bash
+  python verify_quality_criteria.py
+  ```
 
 ---
 
 ## 🧪 Pruebas Automatizadas
 
-Para validar las transformaciones y la integridad del pipeline:
+Para validar las transformaciones, la resolución de stints/paradas y la integridad del pipeline:
 
 1. **Instalar pytest**:
    ```bash
    pip install pytest
    ```
 
-2. **Ejecutar tests de la capa Silver**:
+2. **Ejecutar tests unitarios de la capa Silver**:
    ```bash
    python -m pytest tests/test_silver_pipeline.py
    ```
@@ -164,7 +160,7 @@ Para validar las transformaciones y la integridad del pipeline:
 ## 📂 Estructura del Repositorio
 
 ```text
-├── .astro/                  # Configuración y pruebas de integridad del proyecto Astro CLI
+├── .astro/                      # Configuración y pruebas de integridad del proyecto Astro CLI
 ├── dags/
 │   └── f1_strategy_pipeline.py  # DAG principal de ingesta Bronce y orquestación Silver
 ├── database/
@@ -173,10 +169,11 @@ Para validar las transformaciones y la integridad del pipeline:
 ├── docs/
 │   └── SILVER.md                # Especificación y contrato de datos de la capa Silver
 ├── src/
-│   └── silver_pipeline.py       # Motor determinístico de enriquecimiento y joins As-Of
+│   └── silver_pipeline.py       # Motor determinístico de enriquecimiento, joins As-Of y stints/pits
 ├── tests/
 │   ├── dags/                    # Pruebas de integridad de DAGs de Airflow
-│   └── test_silver_pipeline.py  # Pruebas unitarias de uniones y validaciones Silver
+│   └── test_silver_pipeline.py  # Pruebas unitarias de uniones, resolución de pits y validaciones
+├── verify_quality_criteria.py   # Script de auditoría de los 7 criterios de calidad
 ├── airflow_settings.yaml        # Conexiones locales de Airflow (OpenF1 HTTP Hook)
 ├── docker-compose.yml           # Definición del servicio PostgreSQL 16
 ├── Dockerfile                   # Imagen base de Astro Runtime

@@ -642,11 +642,11 @@ def f1_strategy_pipeline():
     # 6. Capa Silver: Consolidación y Deduplicación
     # -----------------------------------------------------------------------
 
-    # Junta los parciales de cada carrera procesada en un único archivo
-    # consolidado y deduplica por la clave primaria natural.
+    # Junta los parciales de cada carrera procesada en datasets consolidados
+    # (_consolidado.csv y _consolidado_pit_stops.csv) y deduplica por clave primaria.
     @task
     def consolidate(plata_dir_str: str | None = None) -> str:
-        """Junta las sesiones de plata, deduplica por clave primaria y genera _consolidado.csv."""
+        """Junta las sesiones de plata, deduplica por clave primaria y genera _consolidado.csv y _consolidado_pit_stops.csv."""
         import sys
         if str(PROJECT_ROOT) not in sys.path:
             sys.path.insert(0, str(PROJECT_ROOT))
@@ -660,10 +660,11 @@ def f1_strategy_pipeline():
             silver_dir=plata_dir,
             bronze_dir=BRONZE_DIR,
             output_filename="_consolidado.csv",
+            pit_output_filename="_consolidado_pit_stops.csv",
         )
 
         log.info(
-            "Consolidación exitosa. Archivo temporal generado en %s",
+            "Consolidación exitosa. Archivos generados: %s y _consolidado_pit_stops.csv",
             ruta_consolidado,
         )
 
@@ -671,23 +672,30 @@ def f1_strategy_pipeline():
 
 
     # -----------------------------------------------------------------------
-    # 7. Validación de Calidad de Salida (Los 7 Criterios de Entrega 1)
+    # 7. Validación de Calidad de Salida (Criterios de Calidad para Laps y Pit Stops)
     # -----------------------------------------------------------------------
 
     # Chequeos duros. Si alguno falla, el DAG falla: el dato malo no se publica.
     # Esta tarea es la aduana de calidad que protege a la tarea save.
     @task
     def validate(ruta_consolidado: str | None = None) -> str:
-        """Firewall de calidad: evalúa los 7 criterios sobre _consolidado.csv antes de publicar."""
+        """Firewall de calidad: evalúa criterios sobre _consolidado.csv y _consolidado_pit_stops.csv antes de publicar."""
         import csv
         from pathlib import Path
 
         csv_path = Path(ruta_consolidado) if ruta_consolidado else SILVER_DIR / "_consolidado.csv"
+        pit_csv_path = csv_path.parent / "_consolidado_pit_stops.csv"
+
         if not csv_path.exists():
             raise FileNotFoundError(
                 f"No se encontró el archivo consolidado en {csv_path}"
             )
+        if not pit_csv_path.exists():
+            raise FileNotFoundError(
+                f"No se encontró el archivo consolidado de pit stops en {pit_csv_path}"
+            )
 
+        # ----------------- Validación de Dataset Principal (Laps) -----------------
         rows = []
         with csv_path.open("r", encoding="utf-8") as f:
             reader = csv.DictReader(f)
@@ -780,10 +788,54 @@ def f1_strategy_pipeline():
         log.info("[6/7] Sin columnas vacías: OK (0 columnas al 100%% de nulos).")
 
         # 7. Unidad de análisis
-        log.info("[7/7] Unidad de análisis: OK («Una fila es una vuelta completada o intentada por un piloto en un GP»).")
+        log.info("[7/7] Unidad de análisis Laps: OK («Una fila es una vuelta completada o intentada por un piloto en un GP»).")
+
+        # ----------------- Validación de Segundo Dataset (Pit Stops) -----------------
+        pit_rows = []
+        with pit_csv_path.open("r", encoding="utf-8") as f:
+            pit_reader = csv.DictReader(f)
+            pit_fieldnames = pit_reader.fieldnames or []
+            for r in pit_reader:
+                pit_rows.append(r)
+
+        total_pits = len(pit_rows)
+        pit_cols = len(pit_fieldnames)
+
+        # A. Clave única de pit stops
+        pit_keys = [(r["session_key"], r["driver_number"], r["lap_number"]) for r in pit_rows]
+        unique_pit_keys = len(set(pit_keys))
+        if unique_pit_keys != total_pits:
+            raise ValueError(
+                f"Fallo de Calidad Pit Stops [A]: Claves duplicadas en pit stops. Únicas: {unique_pit_keys}, Total: {total_pits}"
+            )
+
+        # B. Exclusividad de paradas
+        non_pit_rows = [r for r in pit_rows if r.get("pit_stop") != "True"]
+        if non_pit_rows:
+            raise ValueError(
+                f"Fallo de Calidad Pit Stops [B]: Se encontraron filas sin pit_stop == True en el dataset de boxes ({len(non_pit_rows)} filas)."
+            )
+
+        # C. Cobertura de new_compound
+        pits_with_new_compound = sum(bool(r.get("new_compound")) for r in pit_rows)
+        if pits_with_new_compound == 0:
+            raise ValueError(
+                "Fallo de Calidad Pit Stops [C]: Ninguna fila tiene asignado 'new_compound'."
+            )
+
+        # D. Volumen y columnas
+        if total_pits <= 1000 or pit_cols < 5:
+            raise ValueError(
+                f"Fallo de Calidad Pit Stops [D]: Volumen ({total_pits}) o columnas ({pit_cols}) insuficientes."
+            )
 
         log.info(
-            "=== VALIDACIÓN DE CALIDAD COMPLETADA EXITOSAMENTE: TODOS LOS CRITERIOS CUMPLIDOS ==="
+            "=== VALIDACIÓN DE PIT STOPS EXITOSA: %s paradas validadas, %s con new_compound ===",
+            total_pits,
+            pits_with_new_compound,
+        )
+        log.info(
+            "=== VALIDACIÓN DE CALIDAD GLOBAL COMPLETADA EXITOSAMENTE: TODOS LOS CRITERIOS CUMPLIDOS ==="
         )
 
         return str(ruta_consolidado)
@@ -793,22 +845,29 @@ def f1_strategy_pipeline():
     # 8. Publicación Oficial (Save)
     # -----------------------------------------------------------------------
 
-    # Escribe el entregable final definitivo SOLO SI validate terminó en éxito.
+    # Escribe los entregables finales definitivos SOLO SI validate terminó en éxito.
     # Si validate falla, save jamás se ejecuta: el dato erróneo nunca llega a destino.
     @task
     def save(ruta_validada: str | None = None, **context) -> str:
-        """Escribe el entregable final f1_silver_dataset.csv una vez superada la validación."""
+        """Escribe f1_silver_dataset.csv y f1_silver_pit_stops.csv una vez superada la validación."""
         import shutil
         from pathlib import Path
 
         origen = Path(ruta_validada) if ruta_validada else SILVER_DIR / "_consolidado.csv"
         destino = SILVER_DIR / "f1_silver_dataset.csv"
 
-        # Publica el dataset oficial
+        origen_pits = origen.parent / "_consolidado_pit_stops.csv"
+        destino_pits = SILVER_DIR / "f1_silver_pit_stops.csv"
+
+        # Publica los datasets oficiales
         shutil.copyfile(origen, destino)
         log.info("Dataset oficial publicado en %s", destino)
 
-        # Guarda además una copia fechada de la corrida
+        if origen_pits.exists():
+            shutil.copyfile(origen_pits, destino_pits)
+            log.info("Dataset oficial de pit stops publicado en %s", destino_pits)
+
+        # Guarda además copias fechadas de la corrida
         dag_run = context.get("dag_run")
         if dag_run:
             momento = dag_run.logical_date or dag_run.run_after
@@ -816,9 +875,13 @@ def f1_strategy_pipeline():
             if momento:
                 ds = momento.date().isoformat()
                 destino_fechado = SILVER_DIR / f"f1_silver_{ds}.csv"
-
                 shutil.copyfile(origen, destino_fechado)
                 log.info("Copia fechada respaldada en %s", destino_fechado)
+
+                if origen_pits.exists():
+                    destino_pits_fechado = SILVER_DIR / f"f1_silver_pit_stops_{ds}.csv"
+                    shutil.copyfile(origen_pits, destino_pits_fechado)
+                    log.info("Copia fechada de pit stops respaldada en %s", destino_pits_fechado)
 
         return str(destino)
 

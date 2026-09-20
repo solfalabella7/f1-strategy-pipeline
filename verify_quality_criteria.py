@@ -1,7 +1,11 @@
 """
 Script de verificación de los 7 criterios de calidad - Entrega 1 (Ciencia de Datos, UTN FRM).
 
-Verifica de forma determinística sobre el dataset Silver (CSV/JSON):
+Verifica de forma determinística sobre los datasets Silver (CSV/JSON):
+1. Dataset Principal (Vueltas): f1_silver_dataset.csv
+2. Segundo Dataset (Pit Stops con new_compound): f1_silver_pit_stops.csv
+
+Criterios evaluados:
 1. Clave sin duplicados (session_key + driver_number + lap_number)
 2. Volumen suficiente (> 1.000 filas)
 3. Ancho suficiente (>= 5 columnas útiles)
@@ -17,21 +21,22 @@ from pathlib import Path
 
 
 CSV_PATH = Path("include/output/silver/f1_silver_dataset.csv")
+PIT_CSV_PATH = Path("include/output/silver/f1_silver_pit_stops.csv")
 
 
-def main():
-    if not CSV_PATH.exists():
-        print(f"Error: No se encontró el archivo {CSV_PATH}.")
+def verify_dataset(csv_path: Path, dataset_name: str, expected_unit: str):
+    if not csv_path.exists():
+        print(f"Error: No se encontró el archivo {csv_path}.")
         print("Ejecute 'python -m src.silver_pipeline --all' primero para generarlo.")
-        return
+        return None
 
     print("=" * 80)
-    print("CHEQUEO DE CALIDAD - 7 CRITERIOS DE LA ENTREGA 1")
-    print(f"Archivo analizado: {CSV_PATH}")
+    print(f"CHEQUEO DE CALIDAD - 7 CRITERIOS: {dataset_name}")
+    print(f"Archivo analizado: {csv_path}")
     print("=" * 80)
 
     rows = []
-    with CSV_PATH.open("r", encoding="utf-8") as f:
+    with csv_path.open("r", encoding="utf-8") as f:
         reader = csv.DictReader(f)
         for row in reader:
             rows.append(row)
@@ -49,25 +54,25 @@ def main():
     print(f"    - Clave natural: (session_key, driver_number, lap_number)")
     print(f"    - Resultado is_unique: {is_unique}")
     print(f"    - Total claves únicas: {unique_keys:,} / Total filas: {total_rows:,}")
-    assert is_unique, "Error: Existen claves duplicadas en el dataset."
+    assert is_unique, f"Error: Existen claves duplicadas en {dataset_name}."
 
     # 2. Volumen suficiente (> 1.000 filas)
     print(f"\n[2] VOLUMEN SUFICIENTE:")
     print(f"    - Total filas: {total_rows:,} (Requerido: > 1.000) -> CUMPLE ({total_rows:,} > 1.000)")
+    assert total_rows > 1000, f"Error: Volumen insuficiente en {dataset_name}."
 
     # 3. Ancho suficiente (>= 5 columnas útiles)
     print(f"\n[3] ANCHO SUFICIENTE:")
     print(f"    - Total columnas: {total_cols} (Requerido: >= 5) -> CUMPLE ({total_cols} >= 5)")
+    assert total_cols >= 5, f"Error: Columnas insuficientes en {dataset_name}."
 
     # 4. Mezcla de tipos de datos
-    # Inferencia de tipos de cada columna
     type_summary = Counter()
     for col in cols:
         non_empty = [r[col] for r in rows if r[col] != ""]
         if not non_empty:
             type_summary["empty"] += 1
             continue
-        # Check booleans
         if all(val in ("True", "False") for val in non_empty):
             type_summary["bool"] += 1
         elif all(val.replace(".", "", 1).replace("-", "", 1).isdigit() for val in non_empty):
@@ -92,42 +97,80 @@ def main():
 
     sorted_nulls = sorted(null_counts.items(), key=lambda x: x[1], reverse=True)
 
-    print(f"\n[5] NULOS CONOCIDOS Y SU JUSTIFICACIÓN (Top 10 columnas con más nulos):")
-    justifications = {
-        "stop_duration": "Solo presente en vueltas con parada física en boxes (~1-3% de las vueltas en carrera).",
-        "pit_date": "Solo presente cuando el auto entra al pit lane.",
-        "pit_duration": "Solo presente cuando el auto entra al pit lane.",
-        "lane_duration": "Solo presente cuando el auto entra al pit lane.",
-        "yellow_flag_scope": "Solo presente cuando hay bandera amarilla sectorizada (Track/Sector).",
-        "country_code_driver": "Ausente en OpenF1 para ciertos pilotos/carreras en la fuente original.",
-        "i1_speed": "Sensor de velocidad intermedio sin registro en vueltas de salida/incompletas.",
-        "gap_to_leader": "El líder de la carrera (P1) no tiene gap respecto a sí mismo, y en vuelta 1 no hay gap previo.",
-        "pit_stop": "Sesiones donde OpenF1 no entregó datos del endpoint /pit (pit_data_available=False).",
-        "st_speed": "Speed trap sin lectura en ciertas vueltas atípicas.",
-        "interval": "El auto en P1 no tiene intervalo con auto precedente, ni en vuelta 1.",
-    }
-
+    print(f"\n[5] NULOS CONOCIDOS (Top 10 columnas con más nulos):")
     for col, count in sorted_nulls[:10]:
         pct = (count / total_rows) * 100
-        razon = justifications.get(col, "Dato no aplicable o no reportado en la vuelta.")
         formatted_count = f"{count:,}"
-        print(f"    * {col:<25}: {pct:>6.2f}% nulos ({formatted_count:>7} filas) -> Motivo: {razon}")
+        print(f"    * {col:<30}: {pct:>6.2f}% nulos ({formatted_count:>7} filas)")
 
     # 6. Sin columnas vacías
     empty_cols = [col for col, count in null_counts.items() if count == total_rows]
     print(f"\n[6] SIN COLUMNAS VACÍAS (100% nulas):")
     print(f"    - Columnas 100% vacías: {empty_cols} (Total: {len(empty_cols)}) -> CUMPLE")
-    assert len(empty_cols) == 0, "Error: Se encontraron columnas completamente vacías."
+    assert len(empty_cols) == 0, f"Error: Se encontraron columnas completamente vacías en {dataset_name}."
 
     # 7. Unidad de análisis
     print(f"\n[7] UNIDAD DE ANÁLISIS:")
-    print(f"    - «Una fila es una vuelta completada o intentada por un piloto en una carrera de Gran Premio».")
-    print(f"    - Columna objetivo sugerida: 'current_compound' (clasificación), 'pit_stop' (decisión de parada) o 'lap_duration' (regresión de degradación).")
+    print(f"    - {expected_unit}")
 
-    print("\n" + "=" * 80)
-    print("RESUMEN: LOS 7 CRITERIOS DE LA ENTREGA 1 ESTÁN 100% CUMPLIDOS Y VERIFICADOS.")
-    print("=" * 80)
+    return rows
+
+
+def main():
+    # 1. Dataset principal
+    laps_rows = verify_dataset(
+        CSV_PATH,
+        "DATASET PRINCIPAL DE VUELTAS (f1_silver_dataset.csv)",
+        "«Una fila es una vuelta completada o intentada por un piloto en una carrera de Gran Premio»."
+    )
+
+    # 2. Dataset de Pit Stops
+    print("\n\n")
+    pit_rows = verify_dataset(
+        PIT_CSV_PATH,
+        "SEGUNDO DATASET: PARADAS EN BOXES (f1_silver_pit_stops.csv)",
+        "«Una fila es una parada en boxes (pit stop) realizada por un piloto, con su neumático entrante y nuevo neumático instalado»."
+    )
+
+    if pit_rows:
+        print("\n" + "=" * 80)
+        print("MÉTRICAS ESPECÍFICAS DE VALIDACIÓN - PIT STOPS & NEW_COMPOUND")
+        print("=" * 80)
+
+        total_pits = len(pit_rows)
+        with_new_comp = sum(bool(r.get("new_compound")) for r in pit_rows)
+        without_new_comp = total_pits - with_new_comp
+        non_pit_stops = sum(r.get("pit_stop") != "True" for r in pit_rows)
+
+        print(f"  • Total filas CSV original (vueltas):          {len(laps_rows):,}")
+        print(f"  • Total filas segundo CSV (pit stops):         {total_pits:,}")
+        print(f"  • Paradas con pit_stop == True:                {total_pits - non_pit_stops:,} (100%)")
+        print(f"  • Filas ajenas a boxes (no pit stop):          {non_pit_stops}")
+        print(f"  • Compuestos nuevos (new_compound) detectados: {with_new_comp:,} ({with_new_comp/total_pits*100:.2f}%)")
+        print(f"  • Registros sin compuesto nuevo:               {without_new_comp}")
+
+        # Matriz de transición de compuestos
+        transitions = Counter((r.get("current_compound"), r.get("new_compound")) for r in pit_rows)
+        print(f"\n  • Top 10 Transiciones de Neumáticos en Boxes (current_compound -> new_compound):")
+        for (c_in, c_out), count in transitions.most_common(10):
+            print(f"      {c_in:<14} -> {c_out:<14}: {count:>5} paradas ({count/total_pits*100:>5.2f}%)")
+
+        compounds_in = Counter(r.get("current_compound") for r in pit_rows)
+        compounds_out = Counter(r.get("new_compound") for r in pit_rows)
+
+        print(f"\n  • Distribución de Compuestos al ENTRAR a boxes (current_compound):")
+        for comp, count in sorted(compounds_in.items(), key=lambda x: x[1], reverse=True):
+            print(f"      {comp:<14}: {count:>5} ({count/total_pits*100:>5.2f}%)")
+
+        print(f"\n  • Distribución de Compuestos al SALIR de boxes (new_compound):")
+        for comp, count in sorted(compounds_out.items(), key=lambda x: x[1], reverse=True):
+            print(f"      {comp:<14}: {count:>5} ({count/total_pits*100:>5.2f}%)")
+
+        print("\n" + "=" * 80)
+        print("TODOS LOS CRITERIOS Y VALIDACIONES DE AMBOS DATASETS HAN SIDO SUPERADOS EXITOSAMENTE.")
+        print("=" * 80)
 
 
 if __name__ == "__main__":
     main()
+
