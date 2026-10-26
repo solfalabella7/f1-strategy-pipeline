@@ -1,0 +1,10 @@
+- Gap ponerlo en int y borrar lap (segundos cuando es menso de una vuelta ) y en más un lap reemplazar por el máximo 
+- ⁠eliminar columna safely car 
+- ⁠yelow eliminarla 
+- ⁠i1 eliminamos la columna 
+- ⁠reemplazo gap por 0 al líder 
+- ⁠borramos los nulos en pits stop filas 
+- ⁠borramos la columna st
+- ⁠intervalo borrar columna 
+- ⁠remplazar gráfico unidad 1 histograma 
+- ⁠hipótesis intermidied con safely card
