@@ -19,7 +19,7 @@ La nota es individual y las preguntas son dirigidas: **todos tienen que poder co
 | 4–7 | Cómo partimos los datos y el piso | **Epifani** | 2.3, 4 (pedazos), 5.1, 6 |
 | 7–10 | La comparación y por qué ganó la logística | **Castillo** | 5.2, 9, 10 |
 | 10–13 | Pesos y columnas que no sirvieron | **Expósito** | 7, 8, y lo de Bélgica en la 12 |
-| 13–16 | El modelo final: test, dónde se equivoca y en qué se apoya | **Camacho** | 11, 12, 13 |
+| 13–16 | El modelo final: test, dónde se equivoca, en qué se apoya y por qué no da más | **Camacho** | 11, 12, 13, 14 |
 | 16–22 | Preguntas dirigidas | todos | — |
 | 22–25 | Devolución | — | — |
 
@@ -79,6 +79,17 @@ Datos a mano:
   - **Coeficientes:** `used_medium` → HARD (+0,21); `used_hard` → MEDIUM (+0,19); `rain_so_far`, `field_wet_prev` y `humidity` → LLUVIA; la temperatura de pista → SOFT.
   - **La que más pesa es `used_medium`** (0,062 en la validación, en los 5 pedazos). **No es fuga:** se calcula con las vueltas anteriores al pit. Es la regla de los dos compuestos: el 65 % de los que ya usaron MEDIUM montan HARD, contra 26 % de los que no.
   - Sin Países Bajos 2023, `lap_number` **sube** de 0,006 a 0,048: esa carrera, con lluvia en el final, tapaba el efecto del final de carrera (89 % SOFT en las últimas 10 vueltas).
+- **¿Por qué no da más?** (sección 14, todo sobre el entrenamiento):
+
+  | Qué se compara | F1 macro |
+  |---|---|
+  | La mayoría de los demás en **la misma carrera**, misma situación | **0,836** |
+  | La mayoría en la misma situación, en **otras carreras** | 0,500 |
+  | El modelo, en carreras que no vio | 0,503 |
+
+  - Los equipos no eligen al azar: en la misma carrera coinciden mucho. El modelo ya rinde lo mismo que la misma situación tomada de otras carreras. **Lo que falta es información de la carrera, no un modelo más complejo.**
+  - Probamos darle lo que montaron los que pararon antes en la carrera: +0,034 ± 0,047, dentro del ruido.
+  - Para la app: el compuesto real está **entre las dos primeras opciones en el 83 %** de las paradas (piso «HARD o MEDIUM»: 77 %).
 
 ---
 
@@ -97,5 +108,7 @@ Datos a mano:
 | ¿Y las columnas de la vuelta anterior? ¿No están afuera del pipeline? | Son el estado de la carrera **antes** de la parada, calculado con las vueltas anteriores de **ese mismo piloto**. No usan estadísticas del dataset ni la respuesta. Lo que aprende algo de los datos (máximo del gap, medianas, escalas) está adentro. |
 | ¿La corrección de Bélgica no es mirar el test? | La encontramos en el análisis de errores, sí. Pero corrige un dato que es físicamente imposible, con una regla que no mira el objetivo ni el modelo y que no toca ninguna carrera de entrenamiento. Y Bélgica sigue en 0 de 26: no la corregimos para mejorar el número. |
 | ¿Por qué las vueltas programadas y no `session_max_lap_observed`? | La segunda se conoce al final de la carrera: en Interlagos 2024, acortada, da 69 en vez de 71. |
-| ¿Qué probaron que no anduvo? | Circuito, equipo, safety car, VSC, gap y posición; la validación al azar; el random forest (dentro del ruido); las columnas de pista que se seca. Y la edad del neumático, que esperábamos que pesara, no pesa para elegir el compuesto. |
-| ¿Qué cambiarían para la Entrega 4? | Mover los transformadores a un módulo para guardar el modelo, que la app devuelva las probabilidades de cada compuesto, y revisar Miami 2025 en el pipeline. |
+| ¿Por qué no da más? ¿No probaron algo más potente? | Copiar lo que se hizo en la misma situación en otras carreras da 0,500, lo mismo que el modelo. En la misma carrera los pilotos coinciden con 0,836. La diferencia es información de la carrera (juegos de neumáticos disponibles, compuestos de Pirelli, degradación), no complejidad del modelo. Por eso el random forest tampoco le gana. |
+| ¿Cómo sacaron ese 0,836? ¿No es trampa? | Cada parada se compara con la mayoría de las **otras** paradas de su grupo, sin contarse a sí misma. No es un modelo usable, porque mira paradas posteriores de la misma carrera: es una cota que muestra de dónde vendría la mejora. |
+| ¿Qué probaron que no anduvo? | Circuito, equipo, safety car, VSC, gap y posición; la validación al azar; el random forest (dentro del ruido); las columnas de pista que se seca; lo que montaron los que pararon antes (+0,034 ± 0,047). Y la edad del neumático, que esperábamos que pesara, no pesa para elegir el compuesto. |
+| ¿Qué cambiarían para la Entrega 4? | Sumar al pipeline los entrenamientos y la clasificación para calcular los juegos de neumáticos que le quedan a cada piloto, y la nominación de Pirelli. Que la app muestre las probabilidades (el compuesto correcto está entre las dos primeras en el 83 %). El detalle está en `Entrega4/PENDIENTES.md`. |
