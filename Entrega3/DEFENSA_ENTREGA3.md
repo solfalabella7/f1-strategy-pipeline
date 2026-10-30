@@ -1,6 +1,7 @@
 # Guía de defensa · Entrega 3 · Modelado
 
 **Grupo 5K10-10** · Castillo, Expósito, Epifani, Falabella, Farías y Camacho
+**Defensa:** viernes 30/10, 19:00. Se entrega y se presenta sólo el v6.
 **Notebook:** [`Entrega3_F1_v6.ipynb`](Entrega3_F1_v6.ipynb) (ya ejecutado, con semilla `SEED = 42`, scikit-learn 1.6.1 y las salidas guardadas)
 
 > Llegar 5 minutos antes con el notebook **abierto y ya ejecutado**. No correrlo en vivo: desde una carpeta vacía tarda unos 5 minutos, porque baja las vueltas del Drive y reconstruye las paradas desde OpenF1.
