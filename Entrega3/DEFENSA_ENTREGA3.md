@@ -1,10 +1,29 @@
 # Guía de defensa · Entrega 3 · Modelado
 
 **Grupo 5K10-10** · Castillo, Expósito, Epifani, Falabella, Farías y Camacho
-**Notebook:** [`Entrega3_Modelado.ipynb`](Entrega3_Modelado.ipynb) (ya ejecutado, con semilla `SEED = 42` y las salidas guardadas)
+**Notebook:** [`Entrega3_F1_v6.ipynb`](Entrega3_F1_v6.ipynb) (ya ejecutado, con semilla `SEED = 42`, scikit-learn 1.6.1 y las salidas guardadas)
 
-> Llegar 5 minutos antes con el notebook **abierto y ya ejecutado**. No correrlo en vivo: tarda cerca de un minuto y medio.
-> Para volver a ejecutarlo hacen falta los CSV de la capa Silver en `include/output/silver/` (no están en git: se generan con el DAG o con `python -m src.silver_pipeline --all`). Después: `cd Entrega3` y `python -m jupyter nbconvert --to notebook --execute --inplace Entrega3_Modelado.ipynb`.
+> Llegar 5 minutos antes con el notebook **abierto y ya ejecutado**. No correrlo en vivo: desde una carpeta vacía tarda unos 5 minutos, porque baja las vueltas del Drive y reconstruye las paradas desde OpenF1.
+> Para volver a ejecutarlo: en Colab, "Ejecutar todo" (si `f1_silver_dataset.csv` y `f1_silver_pit_stops.csv` están subidos al panel Archivos, usa esos). En local: `cd Entrega3` y `python -m jupyter nbconvert --to notebook --execute --inplace Entrega3_F1_v6.ipynb`. Con una versión de scikit-learn distinta de 1.6.1 pueden moverse decimales.
+
+---
+
+## Qué cambió respecto de la primera versión
+
+Leerlo todos antes de ensayar: varias respuestas de la primera guía **ya no valen**.
+
+| Tema | Primera versión (`Entrega3_Modelado.ipynb`) | v6 |
+|---|---|---|
+| Qué predice | Sólo `new_compound` | Dos pasos: `pit_stop` en cada vuelta y, si para, `new_compound`. Al final, el sistema completo |
+| Variables históricas | Se armaban afuera del pipeline | Primer paso del `Pipeline`: el transformador `HistoriaCausal`, con prueba de que no usa el futuro |
+| Validación | `StratifiedGroupKFold(5)` y `GroupKFold` repetido 10 veces | 4 pedazos de 10 carreras, una carrera con lluvia en cada uno. Para elegir, 3 repeticiones (12 folds) |
+| Modelo de compuesto | Logística `C=0,003` (el bosque no ganaba por más que el desvío) | **Random forest** (profundidad 12, hoja 10): ahora sí gana por más que el desvío |
+| Test de compuesto | F1 macro 0,651 | F1 macro **0,638** (802 paradas) |
+| `gap_to_leader` | Adentro del pipeline, con el máximo aprendido en `fit` | **Fuera del modelo.** La corrección se hace sólo como análisis descriptivo |
+| Hipótesis 4 | "La brecha del safety car era en buena parte lluvia" | La lluvia explica una parte, **pero en seco la brecha sigue** (HARD 35,6 % contra 54,3 %) |
+| Momento de carrera | Vueltas programadas | `lap_number`. No se usa ningún total de vueltas |
+
+**Ya no están en el notebook, no citarlos:** la tabla "por qué no da más" (0,836 / 0,500), el 83 % de acierto entre las dos primeras opciones, el ejemplo de Lawson y Sainz en Japón, los coeficientes de la logística y "lo que montaron los que pararon antes".
 
 ---
 
@@ -16,12 +35,12 @@ Los 16 minutos de exposición se reparten en **seis bloques de 2:40 cada uno**, 
 
 | Min. | Momento | Habla | Sección del notebook |
 |---|---|---|---|
-| 0:00–2:40 | Qué cambió desde la Entrega 2 y qué predecimos | **Farías** | 1, 2.1 |
-| 2:40–5:20 | La métrica y cómo partimos los datos | **Falabella** | 2.2, 2.3, 4 (tabla de pedazos), 6 |
-| 5:20–8:00 | Las columnas, el pipeline y el piso | **Epifani** | 3, 4, 5.1 |
-| 8:00–10:40 | La comparación, los pesos, las columnas que no sirvieron y el ajuste | **Castillo** | 5.2, 7, 8, 9 |
-| 10:40–13:20 | La elección, el test y dónde se equivoca | **Expósito** | 10, 11, 12 |
-| 13:20–16:00 | En qué se apoya y por qué no da más | **Camacho** | 13, 14 |
+| 0:00–2:40 | Qué cambió desde la Entrega 2 y qué predecimos | **Farías** | 0, 1, 1.1, 1.2, 2.1 |
+| 2:40–5:20 | Las variables adentro del pipeline y la prueba de fuga | **Epifani** | 2, 14 |
+| 5:20–8:00 | Las métricas, los pisos y cómo partimos los datos | **Falabella** | 3, 3.1, 8 (pedazos al azar) |
+| 8:00–10:40 | La comparación, el ajuste y la elección | **Castillo** | 4, 5, 6 |
+| 10:40–13:20 | El umbral, el test y los errores de parada | **Expósito** | 7, 9, 10 (parada) |
+| 13:20–16:00 | Errores de compuesto, en qué se apoya y el sistema completo | **Camacho** | 10 (compuesto), 8 (ablación), 11, 12, 13 |
 | 16:00–22:00 | Preguntas dirigidas | todos | — |
 | 22:00–25:00 | Devolución | — | — |
 
@@ -31,78 +50,106 @@ Los 16 minutos de exposición se reparten en **seis bloques de 2:40 cada uno**, 
 
 ## 0:00–2:40 · Qué cambió y qué predecimos (Farías)
 
-**Qué cambió, en dos oraciones:** aplicamos las diez observaciones de la Entrega 2 (sacamos safety car, amarilla, `i1_speed`, `st_speed` e `interval`; borramos las vueltas con `pit_stop` nulo; convertimos el gap al líder a segundos enteros con líder = 0 y doblados = máximo; reemplazamos el boxplot de la hipótesis 1 por un histograma) y corregimos un dato de OpenF1 en Bélgica 2025. El objetivo no cambió.
+**Qué cambió, en dos oraciones:** aplicamos las diez observaciones de la Entrega 2 (sacamos safety car, amarilla, `i1_speed`, `st_speed` e `interval`; borramos las vueltas con `pit_stop` nulo; convertimos el gap al líder a segundos enteros con líder = 0 y doblados = máximo; reemplazamos el boxplot de la hipótesis 1 por un histograma; revisamos la hipótesis 4) y corregimos un dato de OpenF1 en Bélgica 2025. Además, el recomendador ahora tiene dos pasos: primero si para y después qué compuesto monta.
 
 Datos a mano:
-- 6.627 vueltas borradas por `pit_stop` nulo (carreras de 2023 sin datos de pits).
-- Gap: 119 paradas de doblados → 139 s; 182 líderes → 0. El máximo se aprende adentro del pipeline (lo explica Epifani).
-- Hipótesis 4: con safety car, el 27,9 % de las paradas monta lluvia, contra 7,4 % sin safety car. La brecha del safety car era en buena parte **lluvia**. Agregar la columna de nuevo al modelo cambia −0,002.
-- **Bélgica 2025:** OpenF1 da un stint de INTERMEDIATE de 1 vuelta y otro de MEDIUM desde la vuelta 2, sin parada entre los dos. Es imposible. La regla que lo detecta revisa las 70 carreras y sólo encuentra esos 20 pilotos (ninguna carrera de entrenamiento).
+- 6.627 vueltas borradas por `pit_stop` nulo (carreras de 2023 sin datos de pits). Quedan 70.746 vueltas y 2.333 paradas.
+- **Gap (sección 1.1):** 119 paradas de doblados → 139 s (el máximo de las paradas); 182 líderes → 0. El máximo de las vueltas es 2.500 s por una bandera roja, por eso no se usa. **El gap no entra al modelo:** reemplazar los "+N LAP" exige calcular un máximo con datos, y hacerlo bien por fold no mejoraba el modelo.
+- **Hipótesis 4 (sección 1.2):** con safety car, el 27,9 % de las paradas monta lluvia, contra 7,4 % sin safety car (75 de 269 paradas, de 6 carreras). **Pero mirando sólo paradas a seco la brecha sigue:** con safety car se monta HARD en el 35,6 % y sin safety car en el 54,3 % (brecha 0,187). Con safety car la parada cuesta menos y se pone un neumático para menos vueltas. Es asociación, no causa. El safety car queda fuera del modelo y se usa sólo para leer errores.
+- **Hipótesis 1 (sección 2.1):** histograma de `tyre_age_prev` normalizado por grupo. Las vueltas con parada tienen mediana 17 vueltas contra 11, pero las distribuciones se superponen mucho: la edad sola no decide cuándo parar.
+- **Bélgica 2025:** OpenF1 da a 20 pilotos un stint de 1 vuelta y otro con otro compuesto desde la vuelta 2, sin parada entre los dos. Es imposible. La regla que lo corrige mira sólo la historia de neumáticos y paradas, nunca el compuesto que se predice.
 
-**Qué predecimos:** `new_compound`, el compuesto que se monta en una parada. Una fila es una parada. WET se une con INTERMEDIATE en la clase `LLUVIA` porque tiene sólo 7 paradas. Quedan 4 clases: HARD 47 %, MEDIUM 28 %, SOFT 15 % y LLUVIA 10 %.
+**Qué predecimos:**
+- **Paso 1, `pit_stop`:** ¿el piloto para en esta vuelta? Una fila es una vuelta. Sólo el 3 % de las vueltas tiene parada.
+- **Paso 2, `new_compound`:** si para, ¿qué compuesto monta? Una fila es una parada. INTERMEDIATE y WET se unen en `LLUVIA`. Quedan 4 clases: HARD 48 %, MEDIUM 28 %, SOFT 14 % y LLUVIA 10 %.
 
-## 2:40–5:20 · Métrica y partición (Falabella)
+## 2:40–5:20 · Variables adentro del pipeline y prueba de fuga (Epifani)
 
-- **Métrica: F1 macro.** El error caro es recomendar HARD cuando correspondía SOFT, o seco cuando llueve, y esos errores están en las clases chicas. El F1 macro le da el mismo peso a cada clase. La accuracy premia decir HARD siempre: 0,518 sin mirar ninguna columna.
-- **Test = temporada 2025 entera** (815 paradas, 24 carreras). Imita el uso: la app va a predecir carreras futuras.
-- **Validación por carrera** sobre 2023–2024: una carrera nunca queda de los dos lados (la tabla de pedazos muestra 0 carreras compartidas).
-  - Para comparar y ajustar: `StratifiedGroupKFold(5)` con `groups=session_key`.
-  - Para la comparación final: `GroupKFold` repetido 10 veces (50 mediciones). `StratifiedGroupKFold` arma casi siempre los mismos pedazos, cualquiera sea la semilla.
-  - El pedazo 1 no tiene LLUVIA: en 2023–2024 la lluvia está en 4 carreras. Eso explica parte del desvío.
-- **¿Por qué por carrera? (sección 6)** En una carrera paran 20 autos con la misma lluvia y el mismo safety car. Si se arma al azar, el F1 sube de 0,444 a 0,642 (logística) y de 0,558 a 0,830 (bosque), y esa diferencia es fuga.
+- **El cambio (sección 2):** en la primera versión las variables históricas se armaban antes del pipeline. Ahora el primer paso del `Pipeline` es `HistoriaCausal`:
+  - **Recibe** sólo quién, dónde y cuándo: `session_key`, `driver_number`, `lap_number`, `circuit_short_name`, `team_name`.
+  - **Lee** del registro de la carrera (`RegistroCarreras`, lo que la app vería en vivo) **sólo vueltas anteriores**: la última vuelta previa del piloto y la vuelta t−1 del pelotón.
+  - **No aprende nada en `fit`:** no hay medias, máximos ni conteos del dataset, así que no puede pasar información de validación a entrenamiento.
+  - Después siguen la imputación, el escalado, el one-hot y el modelo, reajustados en cada fold.
+- **Las 18 variables:** edad y compuesto del neumático y posición de la vuelta anterior; paradas ya hechas; compuestos ya usados (`used_*`); proporción del pelotón en cada compuesto en la vuelta t−1 (`field_*_prev`); clima de la vuelta anterior; `lap_number`, circuito y equipo.
+  - Todo sale de la **vuelta anterior**, porque en la Entrega 2 vimos que `current_compound` y `tyre_age` a veces ya muestran la goma nueva en la vuelta del pit.
+  - El momento de carrera se mide con `lap_number`. No se usa `session_max_lap_observed`, que se conoce al final.
+- **¿Cómo sabemos que no usa el futuro?**
+  - **Borrar el futuro:** para 300 vueltas al azar se borra del registro todo lo que pasó desde esa vuelta en adelante, de todos los pilotos. **Ninguna variable cambia: 0 de 300.**
+  - Las 18 variables son idénticas a las que se armaban afuera: no cambian los datos, cambia **dónde** se calculan.
+- **Afuera quedan, a propósito:** la limpieza del dato de origen, qué vueltas se predicen (las que tienen al menos una vuelta previa del piloto) y las etiquetas. Ninguna calcula estadísticas.
+- **Para la Entrega 4 (sección 14):** se guardan los dos pipelines y un archivo con columnas, umbral y clases. La app le pasa el registro de la carrera en curso con `set_params(historia__registro=...)`. El notebook carga el `.joblib` y comprueba que predice lo mismo.
 
-## 5:20–8:00 · Columnas, pipeline y piso (Epifani)
+## 5:20–8:00 · Métricas, pisos y partición (Falabella)
 
-- **Columnas (sección 3):** todo lo que viene del CSV de vueltas se toma de la **vuelta anterior** del piloto, porque en la Entrega 2 vimos que `current_compound` y `tyre_age` a veces ya muestran la goma nueva en la vuelta del pit.
-  - Compuesto con el que llega y su edad.
-  - Compuestos ya usados en la carrera (la regla de los dos compuestos de seco).
-  - Qué lleva el pelotón.
-  - Clima, posición y gap.
-  - Vueltas programadas en lugar de `session_max_lap_observed`, que se conoce al final (en Interlagos 2024, acortada, da 69 en vez de 71).
-- **Pipeline (sección 4):** columnas derivadas, gap al líder, imputación con la mediana, escalado, one-hot y el modelo. El gap usa el máximo **aprendido en `fit`**, sólo con el entrenamiento: si se calcula con todo el dataset, ya miró el test. En el CSV de vueltas el máximo es 2.500 s (bandera roja), por eso no lo usamos.
-- **Piso (sección 5.1):** «siempre HARD» da 0,182 ± 0,023; «al azar con proporciones», 0,242. En el test, el piso da 0,142.
+- **Métricas (sección 3):**
+  - `pit_stop`: **F1 de la clase "para"**. "Nunca parar" tiene 96,9 % de accuracy en 2025 y no sirve para nada. El F1 combina precisión (cuántas alarmas son paradas reales) y recall (cuántas paradas se anticipan).
+  - `new_compound`: **F1 macro**. SOFT y LLUVIA son chicas, y el F1 macro les da el mismo peso que a HARD.
+- **Pisos (`DummyClassifier`, misma validación):** en parada, "nunca parar" da 0, pero el piso real es **"siempre parar": 0,064**. En compuesto, "siempre HARD" da 0,173 y "al azar con las proporciones", 0,212.
+- **Partición:** se entrena con 2023–2024 (43.685 vueltas, 1.442 paradas, 40 carreras) y el test es 2025 (25.787 vueltas, 802 paradas, 24 carreras). Imita el uso: la app predice carreras nuevas.
+- **El problema de los 5 pedazos (sección 3.1):** en 2023–2024 la lluvia está en sólo 4 carreras. Con `StratifiedGroupKFold(5)`, **dos folds quedaban sin LLUVIA**, y cada fold medía una cosa distinta: el fold 4 daba 0,555 promediando 3 clases y daría 0,416 con las 4. El desvío entre folds era 0,141 y salía del reparto, no del modelo.
+- **La corrección:** 4 pedazos de 10 carreras, estratificando las **carreras** por "tuvo lluvia".
+  - Cada fold tiene una carrera con lluvia (Países Bajos 2023; São Paulo, Gran Bretaña y Canadá 2024) y las 4 clases.
+  - Ninguna carrera queda de los dos lados (0 carreras compartidas).
+  - Los dos pasos usan los mismos pedazos.
+  - Costo: cada entrenamiento ve 30 carreras en lugar de 32.
+- **¿Por qué por carrera? (sección 8, contraprueba):** en una carrera paran 20 autos con la misma lluvia y el mismo safety car. Con pedazos al azar por filas, parada sube de **0,146 a 0,250** y compuesto de **0,561 a 0,753**. Esa diferencia es fuga: el bosque reconoce la carrera.
 
-## 8:00–10:40 · Comparación, pesos, columnas y ajuste (Castillo)
+## 8:00–10:40 · Comparación, ajuste y elección (Castillo)
 
-- **Comparación sin ajustar (sección 5.2):** logística 0,444 · árbol 0,412 · boosting 0,497 · random forest 0,558. Mismas columnas y mismos pedazos para todos. El bosque parecía ganar por +0,114.
-- **`class_weight="balanced"` (sección 7):** en la logística, el F1 macro sube de 0,433 a 0,466 y LLUVIA de 0,21 a 0,32.
-- **Columnas (sección 8):**
-  - **No sirvieron:** circuito (a la logística le **resta** 0,073, porque memoriza dónde llovió), equipo, safety car, VSC, gap y posición, todas dentro del ruido.
-  - **Sí sirven:** estado del pelotón, clima y compuestos ya usados.
-- **Ajuste (sección 9):** la primera comparación era injusta, porque el bosque se iba a ajustar y la logística no. Ajustamos **los dos finalistas**:
-  - logística `C=0,003`, `balanced`: **0,517** (el ajuste le suma 0,07, porque mucha regularización generaliza mejor a carreras nuevas);
-  - random forest `max_depth=12`, `min_samples_leaf=25`: **0,577** (con hojas de 1 sobreajusta: 0,98 en entrenamiento).
+- **Comparación sin ajustar (sección 4):** mismas columnas y mismos pedazos, con el F1 de entrenamiento al lado.
 
-## 10:40–13:20 · Elección, test y errores (Expósito)
+  | | Logística | Árbol | Boosting | Random forest |
+  |---|---|---|---|---|
+  | `pit_stop` | 0,100 | 0,105 | 0,128 | **0,136** |
+  | `new_compound` | 0,376 | 0,389 | 0,446 | **0,546** |
 
-- **Comparación justa (sección 10, 50 mediciones):** logística 0,503 ± 0,097 · bosque 0,542 ± 0,078 · **diferencia +0,039 ± 0,058**. El bosque gana en el 74 % de las mediciones, pero **no por más que el desvío**. Regla fijada antes de correr: **se queda la logística**.
-- **Test (sección 11): F1 macro 0,651**, accuracy 0,663 y accuracy balanceada 0,693, contra 0,142 del piso. El random forest, como referencia, da 0,629.
-  - **Por qué da más que la validación (0,503):** para el test el modelo se entrena con 40 carreras y no con 32, y en la validación muchos pedazos no tienen lluvia: si el modelo predice LLUVIA una vez en esos pedazos, la clase entra con 0 y le resta un cuarto al F1 macro.
-  - **Transparencia (decirlo si preguntan):** el test se miró una vez en la primera versión (random forest: 0,629). Después cambiamos el modelo por la regla de la validación cruzada, no por el test, y corregimos Bélgica, que es un dato. El 0,651 se lee con esa salvedad.
-- **Dónde se equivoca (sección 12):**
-  - LLUVIA tiene recall **0,94** y precisión 0,60. SOFT es la más difícil (F1 0,52).
-  - Últimas 10 vueltas: acierta 23 %, contra 72–73 % en el resto.
-  - **Ejemplo:** en Japón 2025, Lawson y Sainz (con medios de 31 vueltas y 21 vueltas por delante) montan SOFT y el modelo dice HARD. Decide cuántos juegos de neumáticos nuevos le quedan a cada piloto, y OpenF1 no publica ese dato.
-  - **Bélgica 2025, 0 de 26:** con el dato corregido, el pelotón está con intermedios y el modelo dice LLUVIA, pero la pista se secaba y todos pasaron a gomas de seco. Probamos tres columnas de pista que se seca y ninguna suma (+0,001 a +0,010, con desvíos de 0,024 a 0,051). Es un punto ciego documentado.
+  - El boosting memoriza en compuesto: 0,999 en entrenamiento.
+  - La logística por defecto también: 0,765 en entrenamiento contra 0,376 en validación, porque tiene un coeficiente por circuito y por equipo con sólo 1.442 paradas.
+  - **Finalistas:** la logística (la referencia obligatoria) y el bosque (el mejor en los dos pasos).
+- **Ajuste (sección 5, tabla completa):**
+  - `pit_stop`: bosque con profundidad 12 y hoja 10, **0,146 ± 0,030**. Las nueve configuraciones con pesos quedan entre 0,130 y 0,146. **Sin `class_weight` el bosque da 0**: nunca predice parada. Logística: `C=0,001` balanceada, 0,110.
+  - `new_compound`: bosque con profundidad 12 y hoja 10, **0,561 ± 0,064**. Logística: `C=0,0003` balanceada, 0,500. El óptimo de `C` quedó adentro de la grilla (con `C=0,0001` ya baja).
+  - **Sobreajuste:** el bosque memoriza. En la curva, el F1 de entrenamiento sube con la profundidad y el de validación queda plano. Parada: 0,318 en entrenamiento contra 0,146 en validación; compuesto: 0,836 contra 0,561. Siempre se reporta el de validación. Con hoja 25 el compuesto da casi lo mismo (0,560) con menos brecha: queda como opción para la Entrega 4.
+- **Elección (sección 6):** 3 semillas × 4 pedazos = 12 folds, los mismos para los dos finalistas. Regla de la cátedra: el bosque se queda sólo si su ventaja media supera el desvío de las diferencias.
+  - `pit_stop`: **+0,039 ± 0,026** → random forest (gana en 10 de 12 folds).
+  - `new_compound`: **+0,049 ± 0,034** → random forest (gana en 10 de 12 folds).
+  - **Por qué cambia respecto de la primera versión:** la ventaja del bosque era parecida, pero los folds sin lluvia inflaban el desvío y la tapaban. Con folds comparables el desvío baja y la ventaja se ve.
+  - Lectura de dominio: elegir compuesto depende de combinaciones ("todavía no usó MEDIUM y la pista está seca → MEDIUM"). Un árbol las arma solo; una logística no.
 
-## 13:20–16:00 · En qué se apoya y por qué no da más (Camacho)
+## 10:40–13:20 · Umbral, test y errores de parada (Expósito)
 
-- **En qué se apoya (sección 13):**
-  - **Coeficientes:** `used_medium` → HARD (+0,21); `used_hard` → MEDIUM (+0,19); `rain_so_far`, `field_wet_prev` y `humidity` → LLUVIA; la temperatura de pista → SOFT.
-  - **La que más pesa es `used_medium`** (0,062 en la validación, en los 5 pedazos). **No es fuga:** se calcula con las vueltas anteriores al pit. Es la regla de los dos compuestos: el 65 % de los que ya usaron MEDIUM montan HARD, contra 26 % de los que no.
-  - Sin Países Bajos 2023, `lap_number` **sube** de 0,006 a 0,048: esa carrera, con lluvia en el final, tapaba el efecto del final de carrera (89 % SOFT en las últimas 10 vueltas).
-- **¿Por qué no da más?** (sección 14, todo sobre el entrenamiento):
+- **Umbral (sección 7):** con probabilidades fuera de fold de 2023–2024. Regla fijada antes: máximo F1 y, si hay empate, el umbral más alto.
+  - Queda **0,475**: F1 0,140, precisión 8,4 %, recall 43,2 %.
+  - La curva es casi plana entre 0,45 y 0,575: con 0,55 el F1 es el mismo (0,140), con más precisión (9,3 %) y menos recall (28,7 %).
+  - No se cambió después de ver el test.
+- **Test 2025, una sola vez (sección 9):**
+  - `pit_stop`: F1 **0,128** contra 0,060 de "siempre parar", el doble. Precisión **7,2 %** (una de cada 14 alarmas es una parada real) y recall **54,9 %** (440 de 802 paradas). Queda un poco debajo de la validación (0,146): 2025 trae casos propios, como la salida en mojado de Bélgica.
+  - `new_compound` (sobre las paradas reales): F1 macro **0,638** contra 0,140 del piso; accuracy 64,1 % contra 39,0 %. Por clase: HARD 0,72, LLUVIA 0,72, MEDIUM 0,59, SOFT 0,52. Las confusiones son entre compuestos vecinos (MEDIUM→SOFT 56, HARD→MEDIUM 52) y propone SOFT de más (precisión 45 %).
+  - **Transparencia (decirlo si preguntan):** versiones anteriores del grupo ya habían mirado 2025, así que no es un test virgen a nivel proyecto. En esta versión no se usó para retocar nada.
+- **Errores de parada (sección 10):**
+  - **Falsas alarmas (5.637):** el 21,6 % llega 1 a 3 vueltas antes de una parada real y el 35,3 %, 4 a 10 vueltas antes. Vienen en **641 rachas** (8 vueltas de mediana) y el **70,5 %** termina en una parada real. El modelo detecta la **"ventana de parada"**, no la vuelta exacta.
+  - **Ejemplo:** Ocon en Canadá, en HARD desde la largada. La alarma se prende en la vuelta 21 y su única parada llega 36 vueltas después.
+  - **Paradas omitidas (362):** son **reactivas**. Con safety car el 27,9 % (contra 1,1 % de las detectadas), a lluvia el 22,9 % (contra 0,7 %), con neumático de menos de 8 vueltas el 32 % (contra 3,2 %).
+  - Con 3 vueltas de tolerancia casi no cambia (54,9 % → 56,6 %): lo que se escapa, se escapa entero.
+  - **Qué implica:** no sirve como orden automática. Sirve como aviso de "se abrió la ventana", y con safety car o lluvia está ciego.
 
-  | Qué se compara | F1 macro |
-  |---|---|
-  | La mayoría de los demás en **la misma carrera**, misma situación | **0,836** |
-  | La mayoría en la misma situación, en **otras carreras** | 0,500 |
-  | El modelo, en carreras que no vio | 0,503 |
+## 13:20–16:00 · Errores de compuesto, en qué se apoya y sistema completo (Camacho)
 
-  - Los equipos no eligen al azar: en la misma carrera coinciden mucho. El modelo ya rinde lo mismo que la misma situación tomada de otras carreras. **Lo que falta es información de la carrera, no un modelo más complejo.**
-  - Probamos darle lo que montaron los que pararon antes en la carrera: +0,034 ± 0,047, dentro del ruido.
-  - Para la app: el compuesto real está **entre las dos primeras opciones en el 83 %** de las paradas (piso «HARD o MEDIUM»: 77 %).
-  - **Cierre:** para la Entrega 4, sumar al pipeline los juegos de neumáticos disponibles y la nominación de Pirelli (`Entrega4/PENDIENTES.md`).
+- **Errores de compuesto (sección 10):**
+  - **Bélgica 2025, 0 de 26:** todo el pelotón larga con intermedios y pasa a seco entre las vueltas 11 y 13. El modelo ve `field_lluvia_prev = 1` y dice LLUVIA. No sabe que la pista se seca: eso lo dirían los tiempos de vuelta recientes, que no son columnas del modelo.
+  - También cuestan Mónaco (39 %) y Canadá (43 %), donde pesa más la posición en pista y el clima del momento.
+  - **Aprendió la regla de los dos compuestos:** en seco, si todavía no usó MEDIUM, propone MEDIUM el 79 % de las veces; si ya lo usó, propone HARD (61 %) o SOFT (33 %).
+- **En qué se apoya (sección 11, permutación en validación):**
+  - Parada: `tyre_age_prev` (0,028, en los 4 folds), `stops_before`, `used_hard` y `compound_prev`. Neumático viejo y pocas paradas hechas: cerca de parar.
+  - Compuesto: `lap_number` (0,049), `field_lluvia_prev` (sólo en 2 de 4 folds: depende de qué carrera con lluvia tocó), `field_soft_prev`, `field_hard_prev`, `used_hard`, `stops_before` y `used_medium`.
+  - **Ninguna usa el futuro** (prueba de borrar el futuro) y ninguna domina sola.
+- **Ablación (sección 8):** se saca un grupo de columnas por vez. Ninguna caída supera el desvío. En compuesto lo que más resta es el pelotón (−0,049) y `lap_number` (−0,046). Sacar `compound_prev`, `used_*` o el clima sube un poco (+0,014 a +0,016), pero dentro del ruido. Se dejan todas.
+- **Sistema completo (sección 12):** el sistema propone compuesto sólo si recomienda parar.
+  - Acierta parada y compuesto en **342 de 802 paradas (42,6 %)**: anticipa el 54,9 % y, entre esas, acierta el compuesto en el 77,7 %.
+  - Las paradas a LLUVIA casi nunca se anticipan (3,5 %), así que el sistema no acierta **ninguna**, aunque el modelo de compuesto solo acierta el 75,6 % de ellas.
+  - Con el mismo detector y "siempre HARD" habría 228 aciertos: el modelo de compuesto suma **114**.
+  - Sólo el 5,6 % de las 6.077 alarmas es "parada con el compuesto correcto".
+- **Cierre (sección 13):** no funcionó entrenar sin compensar el desbalance, el árbol, el boosting ni validar al azar. Quedan sin resolver las paradas reactivas y la pista que se seca. Para la Entrega 4: tiempos de las vueltas anteriores, mostrar la probabilidad como "ventana de parada", avisar con safety car o lluvia y enchufar el registro de la carrera en curso.
 
 ---
 
@@ -110,18 +157,22 @@ Datos a mano:
 
 | Pregunta | Respuesta |
 |---|---|
-| ¿Por qué esa métrica? | El error caro es no ver SOFT o LLUVIA, que son clases chicas. El F1 macro las pesa igual que a HARD. |
-| ¿Cuánto le gana al piso? ¿Es mucho? | 0,651 contra 0,142 en el test. Sirve como segunda opinión para el muro, no para decidir solo. |
-| ¿Qué pasa si armás los pedazos al azar? | Sube a 0,64 con la logística y a 0,83 con el bosque. Es fuga entre paradas de la misma carrera. |
-| ¿Por qué la logística y no el random forest, si en el test el bosque…? | En el test el bosque da **menos** (0,629). Pero la elección no sale del test: con los dos ajustados y 50 mediciones, el bosque le gana por +0,039 ± 0,058, dentro del ruido. Regla del instructivo: se queda el simple. |
-| ¿Por qué cambiaron de modelo? | La primera comparación tenía el bosque ajustado contra la logística sin ajustar. Al ajustar los dos, la ventaja desapareció. |
-| ¿Por qué el test da más que la validación? | Para el test se entrena con más carreras, y en la validación hay pedazos sin lluvia que castigan la clase LLUVIA. |
-| ¿Por qué `C=0,003`, tan regularizado? | Con 40 carreras, la logística sin regularizar aprende patrones de carreras puntuales (F1 de entrenamiento 0,72, de validación 0,45). La curva de validación lo muestra. |
-| ¿Qué hay adentro del pipeline? | Columnas derivadas (vueltas que faltan, avance de carrera), gap al líder con el máximo aprendido en `fit`, imputación con la mediana, escalado, one-hot y el modelo. |
-| ¿Y las columnas de la vuelta anterior? ¿No están afuera del pipeline? | Son el estado de la carrera **antes** de la parada, calculado con las vueltas anteriores de **ese mismo piloto**. No usan estadísticas del dataset ni la respuesta. Lo que aprende algo de los datos (máximo del gap, medianas, escalas) está adentro. |
-| ¿La corrección de Bélgica no es mirar el test? | La encontramos en el análisis de errores, sí. Pero corrige un dato que es físicamente imposible, con una regla que no mira el objetivo ni el modelo y que no toca ninguna carrera de entrenamiento. Y Bélgica sigue en 0 de 26: no la corregimos para mejorar el número. |
-| ¿Por qué las vueltas programadas y no `session_max_lap_observed`? | La segunda se conoce al final de la carrera: en Interlagos 2024, acortada, da 69 en vez de 71. |
-| ¿Por qué no da más? ¿No probaron algo más potente? | Copiar lo que se hizo en la misma situación en otras carreras da 0,500, lo mismo que el modelo. En la misma carrera los pilotos coinciden con 0,836. La diferencia es información de la carrera (juegos de neumáticos disponibles, compuestos de Pirelli, degradación), no complejidad del modelo. Por eso el random forest tampoco le gana. |
-| ¿Cómo sacaron ese 0,836? ¿No es trampa? | Cada parada se compara con la mayoría de las **otras** paradas de su grupo, sin contarse a sí misma. No es un modelo usable, porque mira paradas posteriores de la misma carrera: es una cota que muestra de dónde vendría la mejora. |
-| ¿Qué probaron que no anduvo? | Circuito, equipo, safety car, VSC, gap y posición; la validación al azar; el random forest (dentro del ruido); las columnas de pista que se seca; lo que montaron los que pararon antes (+0,034 ± 0,047). Y la edad del neumático, que esperábamos que pesara, no pesa para elegir el compuesto. |
-| ¿Qué cambiarían para la Entrega 4? | Sumar al pipeline los entrenamientos y la clasificación para calcular los juegos de neumáticos que le quedan a cada piloto, y la nominación de Pirelli. Que la app muestre las probabilidades (el compuesto correcto está entre las dos primeras en el 83 %). El detalle está en `Entrega4/PENDIENTES.md`. |
+| ¿Por qué esa métrica? | En parada, sólo el 3 % de las vueltas es parada: "nunca parar" tiene 96,9 % de accuracy. El F1 de "para" combina no parar de más con no perderse paradas. En compuesto, F1 macro, porque SOFT y LLUVIA son chicas y valen lo mismo que HARD. |
+| ¿Cuánto le gana al piso? ¿Es mucho? | Parada: 0,128 contra 0,060 en el test, el doble, pero con precisión del 7 % no alcanza para una orden automática; sirve como aviso de ventana. Compuesto: 0,638 contra 0,140. |
+| ¿Qué pasa si armás los pedazos al azar? | Parada sube de 0,146 a 0,250 y compuesto de 0,561 a 0,753. Es fuga entre vueltas de la misma carrera. |
+| ¿Por qué 4 pedazos y no 5? | Hay 4 carreras con lluvia en 2023–2024. Con 5 pedazos dos folds quedaban sin LLUVIA y el F1 macro promediaba 3 clases en unos y 4 en otros. Con 4, cada fold tiene una carrera con lluvia. |
+| ¿Por qué el random forest y no la logística? | Le gana por más que el desvío en los dos pasos: +0,039 ± 0,026 en parada y +0,049 ± 0,034 en compuesto, en 12 folds. Es la regla de la cátedra. |
+| ¿Por qué cambiaron de modelo respecto de la primera versión? | Antes la ventaja del bosque quedaba dentro del ruido porque había folds sin lluvia. Al arreglar los pedazos el desvío bajó y la ventaja se ve. La elección sale de la validación, no del test. |
+| ¿El bosque no sobreajusta? | Sí: 0,836 en entrenamiento contra 0,561 en validación en compuesto. Por eso se reporta siempre la validación por carrera. Más profundidad sube el entrenamiento sin mover la validación. Un bosque con hoja 25 da casi lo mismo con menos brecha. |
+| ¿Por qué el umbral 0,475 y no 0,5? | Es la regla fijada antes: máximo F1 fuera de fold. La curva es plana entre 0,45 y 0,575. Con 0,55 habría menos alarmas con el mismo F1, pero no la cambiamos después de ver el test. |
+| ¿Qué hay adentro del pipeline? | `HistoriaCausal` (arma las 18 variables desde vueltas anteriores), imputación, escalado, one-hot y el modelo. Recibe sólo carrera, piloto, vuelta, circuito y equipo. |
+| ¿Cómo saben que no hay fuga? | `HistoriaCausal` no aprende nada en `fit`. Borramos el futuro de 300 vueltas y ninguna variable cambió. Y validar al azar infla el número, validar por carrera no. |
+| ¿La variable que más pesa no es fuga? | En parada pesa `tyre_age_prev`, la edad al **empezar** la vuelta, que sale de la vuelta anterior. La edad de la vuelta del pit, que sí tenía fuga parcial, no se usa. |
+| ¿Por qué sacaron el gap al líder del modelo? | Reemplazar "+N LAP" por un máximo exige calcularlo con datos. Hacerlo bien por fold no mejoraba el modelo. La corrección pedida está hecha, como análisis descriptivo. |
+| ¿Y el safety car? | Fuera del modelo, como pidió el docente. Lo usamos para leer errores: el 27,9 % de las paradas que se escapan son con safety car. |
+| Si sacar `used_*` sube el F1, ¿por qué dicen que aprendió la regla de los dos compuestos? | La subida (+0,016) está dentro del desvío (0,064). La información se repite en `stops_before` y `compound_prev`, así que sin `used_*` el bosque la reconstruye. Con `used_*` adentro, la usa: propone MEDIUM el 79 % de las veces si todavía no lo usó. |
+| ¿Por qué el test de compuesto da más que la validación? | Para el test se entrena con las 40 carreras y no con 30. El número que estima el rendimiento es el de validación. |
+| ¿La corrección de Bélgica no es mirar el test? | Corrige un dato físicamente imposible (un stint nuevo sin parada), con una regla que no mira el objetivo ni el modelo. Y Bélgica sigue en 0 de 26: no mejora el número. |
+| ¿Por qué el sistema completo da 42,6 % si el compuesto acierta 64,1 %? | El 64,1 % es "si alguien me dice que hay parada". En el sistema el compuesto sólo juega en las paradas que el primer paso anticipa, y las de lluvia casi nunca se anticipan. |
+| ¿Qué probaron que no anduvo? | Entrenar sin pesos de clase (no predice paradas), árbol y boosting (debajo del bosque; el boosting memoriza), la logística sin regularizar, validar al azar y sacar grupos de columnas (todo dentro del ruido). |
+| ¿Qué cambiarían para la Entrega 4? | Tiempos de las vueltas anteriores para detectar la pista que se seca (Bélgica), la probabilidad como "ventana de parada", un aviso con safety car o lluvia y el registro de la carrera en vivo con `set_params(historia__registro=...)`. |
