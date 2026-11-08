@@ -1,0 +1,8 @@
+{
+  "numpy": "2.5.4",
+  "pandas": "3.1.1",
+  "sklearn": "1.9.1",
+  "umbral_base": 0.475,
+  "umbral_nuevo": 0.475,
+  "regla": "maximo F2 OOF; empate mayor umbral; candidatos <= 0.475"
+}
