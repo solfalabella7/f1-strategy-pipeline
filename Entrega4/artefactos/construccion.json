@@ -1,5 +1,5 @@
 {
- "fecha_construccion": "2026-11-11T14:27:52",
+ "fecha_construccion": "2026-11-11T14:39:04",
  "versiones": {
   "python": "3.12.16",
   "scikit-learn": "1.6.1",
@@ -142,7 +142,7 @@
   "compuesto": {
    "verificado": true,
    "filas": 69472,
-   "max_diferencia": 4.440892098500626e-16,
+   "max_diferencia": 5.551115123125783e-16,
    "misma_clase": 1.0
   }
  },

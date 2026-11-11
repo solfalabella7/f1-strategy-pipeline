@@ -17,11 +17,11 @@ const LOCALE = { decimal: ",", thousands: ".", grouping: [3], currency: ["$", ""
 const OPC = { actions: false, renderer: "svg", formatLocale: LOCALE, tooltip: { theme: "custom" }, logLevel: vega.Error };
 const vistas = {};
 
-async function dibujar(id, clave) {
+async function dibujar(id, clave, nombre = clave) {
   const el = document.getElementById(id);
-  if (!el || vistas[clave]) return vistas[clave];
+  if (!el || vistas[nombre]) return vistas[nombre];
   const r = await vegaEmbed(el, SPECS[clave], OPC);
-  vistas[clave] = r.view;
+  vistas[nombre] = r.view;
   return r.view;
 }
 
@@ -269,11 +269,10 @@ async function explora() {
     const fila = id && estado.filas.find((f) => f.id === id);
     if (fila) mostrarDetalle(fila);
   });
-  $("#b-probar").addEventListener("click", () => {
+  $("#b-probar").addEventListener("click", async () => {
     if (!estado.sel) return;
-    const meta = CFG.carreras.find((c) => c.sk === estado.carrera);
-    cargarEnFormulario(estado.sel, `${estado.sel.nombre} · ${meta.nombre} · vuelta ${estado.sel.vuelta}`,
-      estado.sel.para ? `paró y montó ${estado.sel.objetivo}` : "no paró en esa vuelta");
+    cambiarModo("real");
+    await elegirCarrera(estado.carrera, estado.sel.piloto, estado.sel.vuelta);
     document.getElementById("proba").scrollIntoView({ behavior: "smooth" });
   });
   resumirVista();
@@ -281,6 +280,8 @@ async function explora() {
 }
 
 // ------------------------------------------------------------------ Probá el modelo
+// Dos modos. «Vuelta real»: la predicción guardada de un modelo que no vio esa carrera, contra lo que pasó.
+// «Mi escenario»: el formulario; el navegador corre los dos random forest exportados (modelo.js).
 let MOD_PIT = null, MOD_COMP = null;
 const form = () => $("#formulario");
 const ENTEROS = ["lap_number", "tyre_age_prev", "position_prev", "stops_before", "n_soft", "n_medium", "n_hard", "n_lluvia"];
@@ -288,7 +289,167 @@ const DECIMALES = ["track_temperature_prev", "air_temperature_prev", "humidity_p
 const CHECKS = ["used_soft", "used_medium", "used_hard", "rainfall_prev"];
 const SELECTS = ["circuit_short_name", "team_name", "compound_prev"];
 let origenCaso = null;
+const sim = { modo: "real", sk: null, datos: null, piloto: null, filas: [], i: 0 };
+const cacheCarreras = {};
+async function datosCarrera(sk) {
+  if (!cacheCarreras[sk]) cacheCarreras[sk] = expandir(await (await fetch(`datos/carreras/${sk}.json`)).json());
+  return cacheCarreras[sk];
+}
+const chip = (c) => `<span class="chip chip-${String(c).toLowerCase()}">${c}</span>`;
 
+// ---------- resultado (común a los dos modos)
+async function pintarResultado({ p, probs, avisos, real }) {
+  const res = $("#resultado");
+  res.classList.remove("invalido");
+  const mejor = probs.reduce((a, b) => (b.p > a.p ? b : a));
+  const alarma = p >= CFG.umbral;
+  $("#r-veredicto").textContent = alarma ? "Alarma: se abrió la ventana de parada" : "Sin alarma: sigue en pista";
+  $("#r-veredicto").classList.toggle("si", alarma);
+  $("#r-para").textContent = alarma ? "SÍ, PARA" : "NO, SIGUE";
+  $("#r-d-para").classList.toggle("activa", alarma);
+  $("#r-para-det").textContent = `puntaje ${fmt(p, 3)} · umbral ${fmt(CFG.umbral, 3)}`;
+  $("#r-comp").innerHTML = chip(mejor.compuesto);
+  $("#r-comp-det").textContent = `${pct(mejor.p)} de probabilidad${alarma ? "" : " (solo cuenta si para)"}`;
+  $("#r-texto").textContent = alarma
+    ? `El puntaje supera el umbral: el modelo diría que se abrió la ventana de parada y que el neumático más probable es ${mejor.compuesto}.`
+    : `El puntaje queda debajo del umbral: el modelo diría que todavía no es momento de parar. Si igual parara, el neumático más probable sería ${mejor.compuesto}.`;
+  const comp = $("#r-comparacion");
+  comp.hidden = !real;
+  if (real) {
+    comp.className = `comparacion ${real.clase}`;
+    $("#r-real-pasado").innerHTML = real.pasado;
+    $("#r-juicio").innerHTML = real.juicio;
+  }
+  $("#r-avisos").innerHTML = avisos.map((a) => `<li>${a}</li>`).join("");
+  const [vs, vb] = await Promise.all([dibujar("g-puntaje", "puntaje"), dibujar("g-prob-proba", "prob_proba")]);
+  await Promise.all([vs.data("puntaje", [{ p }]).runAsync(), vb.data("prob_proba", probs).runAsync()]);
+}
+
+function avisosDe(x, extra = []) {
+  const T = CFG.textos;
+  const a = [];
+  const lluviaPelo = x.field_lluvia_prev > 0;
+  if (x.rainfall_prev || lluviaPelo || ["INTERMEDIATE", "WET"].includes(x.compound_prev)) a.push(T.aviso_lluvia);
+  if (["INTERMEDIATE", "WET"].includes(x.compound_prev) && x.field_lluvia_prev >= 0.5) a.push(T.aviso_secado);
+  return a.concat(extra);
+}
+
+// ---------- modo 1: vuelta real
+function juicioReal(f) {
+  const alarma = f.puntaje >= CFG.umbral;
+  const mejor = ORDEN[f.p.indexOf(Math.max(...f.p))];
+  const pasado = f.para ? `Paró en esta vuelta y montó ${chip(f.objetivo)}` : "No paró en esta vuelta: siguió en pista";
+  if (f.para && alarma) {
+    const ok = mejor === f.objetivo;
+    return { clase: ok ? "ok" : "parcial", pasado,
+      juicio: ok ? "<b>Acierto completo.</b> Tenía la alarma encendida y eligió el mismo neumático."
+                 : `<b>Anticipó la parada, pero no el neumático:</b> propuso ${chip(mejor)}.` };
+  }
+  if (f.para && !alarma) {
+    const motivo = f.sc ? " Fue una parada con safety car, algo que el modelo no ve."
+      : f.objetivo === "LLUVIA" ? " Fue un cambio a neumáticos de lluvia: el modelo casi nunca los anticipa."
+      : ["INTERMEDIATE", "WET"].includes(f.compound_prev) ? " Venía con neumáticos de lluvia y pasó a seco: la pista se estaba secando, una señal que el modelo no tiene." : "";
+    return { clase: "error", pasado, juicio: `<b>Parada no anticipada.</b> El modelo no tenía la alarma encendida.${motivo}` };
+  }
+  if (!f.para && alarma) {
+    const siguiente = sim.filas.find((v) => v.vuelta > f.vuelta && v.para);
+    const k = siguiente ? siguiente.vuelta - f.vuelta : null;
+    const cuando = k === null ? "Este piloto no volvió a parar en la carrera (stint final largo)."
+      : `La parada real llegó ${k} ${k === 1 ? "vuelta" : "vueltas"} después${k <= 10 ? ": la ventana estaba abierta, faltaba la vuelta exacta" : ""}.`;
+    return { clase: k !== null && k <= 10 ? "parcial" : "error", pasado, juicio: `<b>Falsa alarma.</b> ${cuando}` };
+  }
+  return { clase: "ok", pasado, juicio: "<b>Correcto.</b> Sin alarma, y el piloto siguió en pista." };
+}
+
+function mostrarSituacion(f) {
+  const tot = f.n_soft + f.n_medium + f.n_hard + f.n_lluvia;
+  const barra = tot ? `<span class="peloton" role="img" aria-label="Pelotón: ${f.n_soft} SOFT, ${f.n_medium} MEDIUM, ${f.n_hard} HARD, ${f.n_lluvia} lluvia">${
+    [["soft", f.n_soft], ["medium", f.n_medium], ["hard", f.n_hard], ["lluvia", f.n_lluvia]].filter(([, n]) => n)
+      .map(([c, n]) => `<i class="pel-${c}" style="flex:${n}" title="${n} en ${c.toUpperCase()}"></i>`).join("")}</span>` : "sin dato";
+  const usados = ["soft", "medium", "hard"].filter((c) => f[`used_${c}`]).map((c) => chip(c.toUpperCase())).join(" ") || "ninguno";
+  const dato = (v, d = 0, suf = "") => (v === null || v === undefined ? "sin dato" : `${fmt(v, d)}${suf}`);
+  $("#s-situacion").innerHTML = [
+    ["Neumático", `${f.compound_prev ? chip(f.compound_prev) : "sin dato"} <b>${dato(f.tyre_age_prev)}</b> vueltas de uso`],
+    ["Paradas ya hechas", `<b>${dato(f.stops_before)}</b>`],
+    ["Compuestos ya usados", usados],
+    ["Posición", `<b>${dato(f.position_prev)}</b>`],
+    ["Pelotón en la vuelta anterior", barra],
+    ["Clima", `pista ${dato(f.track_temperature_prev, 1, " °C")} · aire ${dato(f.air_temperature_prev, 1, " °C")} · humedad ${dato(f.humidity_prev, 0, " %")}${f.rainfall_prev ? " · <b>llueve</b>" : ""}`],
+    ["Equipo · circuito", `${f.team_name} · ${f.circuit_short_name}`],
+  ].map(([k, v]) => `<div><dt>${k}</dt><dd>${v}</dd></div>`).join("");
+}
+
+async function mostrarVueltaReal() {
+  const f = sim.filas[sim.i];
+  if (!f) return;
+  const meta = CFG.carreras.find((c) => c.sk === sim.sk);
+  $("#s-vuelta").value = sim.i;
+  $("#s-vuelta-n").textContent = `${f.vuelta} / ${sim.filas[sim.filas.length - 1].vuelta}`;
+  $("#s-prev").disabled = sim.i === 0;
+  $("#s-next").disabled = sim.i === sim.filas.length - 1;
+  mostrarSituacion(f);
+  $("#r-volanta").textContent = `${f.nombre} · ${meta.nombre} · vuelta ${f.vuelta}`;
+  const probs = ORDEN.map((c, k) => ({ compuesto: c, p: f.p[k] }));
+  const extra = f.sc ? [CFG.textos.aviso_sc] : [];
+  await pintarResultado({ p: f.puntaje, probs, avisos: avisosDe(f, extra), real: juicioReal(f) });
+  const vt = await dibujar("g-sim-tray", "trayectoria", "sim_tray");
+  await vt.signal("vuelta_sel", f.vuelta).runAsync();
+}
+
+async function elegirPiloto(acr, vuelta = null) {
+  sim.piloto = acr;
+  $("#s-piloto").value = acr;
+  sim.filas = sim.datos.vueltas.filter((v) => v.piloto === acr).sort((a, b) => a.vuelta - b.vuelta);
+  $("#s-vuelta").max = sim.filas.length - 1;
+  const k = vuelta === null ? sim.filas.findIndex((v) => v.para) : sim.filas.findIndex((v) => v.vuelta === vuelta);
+  sim.i = Math.max(0, k);
+  const vt = await dibujar("g-sim-tray", "trayectoria", "sim_tray");
+  await vt.signal("umbral", CFG.umbral).data("trayectoria", sim.filas).runAsync();
+  await mostrarVueltaReal();
+}
+
+async function elegirCarrera(sk, piloto = null, vuelta = null) {
+  sim.sk = Number(sk);
+  $("#s-carrera").value = String(sk);
+  sim.datos = await datosCarrera(sk);
+  const meta = CFG.carreras.find((c) => c.sk === sim.sk);
+  $("#s-piloto").innerHTML = meta.pilotos.map(([a, n]) => `<option value="${a}">${n}</option>`).join("");
+  await elegirPiloto(piloto && meta.pilotos.some(([a]) => a === piloto) ? piloto : meta.pilotos[0][0], vuelta);
+}
+
+async function sorprendeme() {
+  const lista = CFG.carreras.filter((c) => c.temporada === 2025);
+  const c = lista[Math.floor(Math.random() * lista.length)];
+  const datos = await datosCarrera(c.sk);
+  const paradas = datos.vueltas.filter((v) => v.para);
+  const v = paradas[Math.floor(Math.random() * paradas.length)];
+  await elegirCarrera(c.sk, v.piloto, v.vuelta);
+}
+
+function prepararModoReal() {
+  const temporadas = [...new Set(CFG.carreras.map((c) => c.temporada))].sort((a, b) => b - a);
+  $("#s-carrera").innerHTML = temporadas.map((t) => `<optgroup label="${t}${t === 2025 ? " · test" : " · validación cruzada"}">` +
+    CFG.carreras.filter((c) => c.temporada === t).map((c) => `<option value="${c.sk}">${c.nombre}</option>`).join("") + "</optgroup>").join("");
+  $("#s-carrera").addEventListener("change", (e) => elegirCarrera(e.target.value));
+  $("#s-piloto").addEventListener("change", (e) => elegirPiloto(e.target.value));
+  $("#s-vuelta").addEventListener("input", (e) => { sim.i = Number(e.target.value); mostrarVueltaReal(); });
+  $("#s-prev").addEventListener("click", () => { if (sim.i > 0) { sim.i--; mostrarVueltaReal(); } });
+  $("#s-next").addEventListener("click", () => { if (sim.i < sim.filas.length - 1) { sim.i++; mostrarVueltaReal(); } });
+  $("#s-proxima").addEventListener("click", () => {
+    const k = sim.filas.findIndex((v, j) => j > sim.i && v.para);
+    sim.i = k >= 0 ? k : Math.max(0, sim.filas.findIndex((v) => v.para));
+    mostrarVueltaReal();
+  });
+  $("#b-ejemplo").addEventListener("click", sorprendeme);
+  $("#s-editar").addEventListener("click", () => {
+    const f = sim.filas[sim.i];
+    const meta = CFG.carreras.find((c) => c.sk === sim.sk);
+    cargarEnFormulario(f, `${f.nombre} · ${meta.nombre} · vuelta ${f.vuelta}`, f.para ? `paró y montó ${f.objetivo}` : "no paró en esa vuelta");
+    cambiarModo("propio");
+  });
+}
+
+// ---------- modo 2: mi escenario
 function prepararFormulario() {
   const f = form();
   for (const nombre of SELECTS) {
@@ -300,14 +461,12 @@ function prepararFormulario() {
     f.elements[nombre].max = r.max;
     f.elements[nombre].placeholder = `${fmt(r.min, DECIMALES.includes(nombre) ? 1 : 0)} a ${fmt(r.max, DECIMALES.includes(nombre) ? 1 : 0)}`;
   }
-  // Solo los campos con nombre son variables del modelo; los menús de «partir de una situación real» no.
   f.addEventListener("input", (e) => {
     if (!e.target.name) return;
     if (origenCaso) origenCaso.modificado = true;
     evaluar();
   });
   f.addEventListener("change", (e) => { if (e.target.name) evaluar(); });
-  $("#b-ejemplo").addEventListener("click", ejemploAlAzar);
 }
 
 function cargarEnFormulario(fila, desc, real) {
@@ -318,60 +477,7 @@ function cargarEnFormulario(fila, desc, real) {
   for (const n of CHECKS) f.elements[n].checked = Boolean(fila[n]);
   // Los decimales del clima se guardan con su valor exacto para reproducir la predicción del dataset.
   origenCaso = { desc, real, exacto: Object.fromEntries(DECIMALES.map((n) => [n, fila[n]])), modificado: false };
-  evaluar();
-}
-
-// Partir de una situación real: carrera → piloto → vuelta. Carga esa vuelta en el formulario.
-const cacheCarreras = {};
-async function datosCarrera(sk) {
-  if (!cacheCarreras[sk]) cacheCarreras[sk] = expandir(await (await fetch(`datos/carreras/${sk}.json`)).json());
-  return cacheCarreras[sk];
-}
-
-function partirDeCasoReal() {
-  const sc = $("#p-carrera"), sp = $("#p-piloto"), sv = $("#p-vuelta");
-  const temporadas = [...new Set(CFG.carreras.map((c) => c.temporada))].sort((a, b) => b - a);
-  sc.innerHTML = '<option value="">Elegí una carrera</option>' + temporadas.map((t) =>
-    `<optgroup label="${t}">` + CFG.carreras.filter((c) => c.temporada === t)
-      .map((c) => `<option value="${c.sk}">${c.nombre}</option>`).join("") + "</optgroup>").join("");
-  let datos = null;
-  sc.addEventListener("change", async () => {
-    sp.disabled = sv.disabled = true;
-    sp.innerHTML = sv.innerHTML = '<option value="">—</option>';
-    if (!sc.value) return;
-    datos = await datosCarrera(sc.value);
-    const meta = CFG.carreras.find((c) => c.sk === Number(sc.value));
-    sp.innerHTML = '<option value="">Elegí un piloto</option>' + meta.pilotos.map(([a, n]) => `<option value="${a}">${n}</option>`).join("");
-    sp.disabled = false;
-  });
-  sp.addEventListener("change", () => {
-    sv.disabled = true;
-    if (!sp.value || !datos) return;
-    const vueltas = datos.vueltas.filter((v) => v.piloto === sp.value);
-    sv.innerHTML = '<option value="">Elegí una vuelta</option>' + vueltas.map((v) =>
-      `<option value="${v.vuelta}">Vuelta ${v.vuelta}${v.para ? ` · paró (${v.objetivo})` : ""}</option>`).join("");
-    sv.disabled = false;
-  });
-  sv.addEventListener("change", () => {
-    if (!sv.value || !datos) return;
-    const v = datos.vueltas.find((x) => x.piloto === sp.value && x.vuelta === Number(sv.value));
-    const meta = CFG.carreras.find((c) => c.sk === Number(sc.value));
-    if (v) cargarEnFormulario(v, `${v.nombre} · ${meta.nombre} · vuelta ${v.vuelta}`, v.para ? `paró y montó ${v.objetivo}` : "no paró en esa vuelta");
-  });
-}
-
-async function ejemploAlAzar() {
-  const lista = CFG.carreras.filter((c) => c.temporada === 2025);
-  const c = lista[Math.floor(Math.random() * lista.length)];
-  const datos = expandir(await (await fetch(`datos/carreras/${c.sk}.json`)).json());
-  const candidatas = datos.vueltas.filter((v) => v.tyre_age_prev !== null && v.position_prev !== null
-    && v.track_temperature_prev !== null && CFG.categorias.team_name.includes(v.team_name));
-  // Se prueban vueltas al azar hasta encontrar una dentro de lo que vio el modelo (2023-2024).
-  for (let intento = 0; intento < 200; intento++) {
-    const v = candidatas[Math.floor(Math.random() * candidatas.length)];
-    cargarEnFormulario(v, `${v.nombre} · ${c.nombre} · vuelta ${v.vuelta}`, v.para ? `paró y montó ${v.objetivo}` : "no paró en esa vuelta");
-    if (!leerYValidar().errores.length) return;
-  }
+  if (sim.modo === "propio") evaluar();
 }
 
 function leerYValidar() {
@@ -438,48 +544,47 @@ function leerYValidar() {
 }
 
 async function evaluar() {
-  if (!MOD_PIT || !MOD_COMP) return;
+  if (!MOD_PIT || !MOD_COMP || sim.modo !== "propio") return;
   const { x, errores, raras } = leerYValidar();
   const caja = $("#errores");
   const res = $("#resultado");
-  $("#f-origen").textContent = origenCaso ? `${origenCaso.modificado ? "Modificado a partir de: " : "Caso real: "}${origenCaso.desc}` : "";
+  $("#r-volanta").textContent = "Lo que predice el modelo para tu escenario";
+  $("#f-origen").textContent = origenCaso ? `${origenCaso.modificado ? "Modificado a partir de: " : "Partiste de: "}${origenCaso.desc}` : "";
   const real = $("#r-real");
-  real.hidden = !origenCaso || origenCaso.modificado;
-  if (origenCaso) real.textContent = `En la carrera real: ${origenCaso.real}.`;
+  real.hidden = !origenCaso;
+  if (origenCaso) real.textContent = `En la carrera real (${origenCaso.desc}): ${origenCaso.real}.`;
   if (errores.length) {
     caja.hidden = false;
     caja.innerHTML = `<p>Revisá ${errores.length === 1 ? "este dato" : "estos datos"} antes de predecir:</p><ul>${errores.map((e) => `<li>${e}</li>`).join("")}</ul>`;
     res.classList.add("invalido");
     $("#r-veredicto").textContent = "Datos no válidos";
     $("#r-veredicto").classList.remove("si");
+    $("#r-para").textContent = "—"; $("#r-comp").textContent = "—"; $("#r-para-det").textContent = ""; $("#r-comp-det").textContent = "";
+    $("#r-comparacion").hidden = true;
     $("#r-texto").textContent = `Hay ${errores.length === 1 ? "un dato marcado" : `${errores.length} datos marcados`} en el formulario. El modelo no predice con valores que nunca vio ni con combinaciones imposibles.`;
     $("#r-avisos").innerHTML = "";
     return;
   }
   caja.hidden = true;
-  res.classList.remove("invalido");
   const fila = {};
   for (const n of [...MOD_PIT.numericas, ...MOD_PIT.categoricas]) fila[n] = x[n];
   const p = predecir(MOD_PIT, fila);
   const pc = predecir(MOD_COMP, fila);
   const probs = ORDEN.map((c) => ({ compuesto: c, p: pc[MOD_COMP.clases.indexOf(c)] }));
-  const mejor = probs.reduce((a, b) => (b.p > a.p ? b : a));
-  const alarma = p >= CFG.umbral;
-  $("#r-veredicto").textContent = alarma ? `Alarma: se abrió la ventana, monta ${mejor.compuesto}` : "Sin alarma: sigue en pista";
-  $("#r-veredicto").classList.toggle("si", alarma);
-  $("#r-texto").textContent = alarma
-    ? `Puntaje ${fmt(p, 3)}, por encima del umbral ${fmt(CFG.umbral, 3)}. Si para, el neumático más probable es ${mejor.compuesto} (${pct(mejor.p)}).`
-    : `Puntaje ${fmt(p, 3)}, por debajo del umbral ${fmt(CFG.umbral, 3)}. Si igual parara, el neumático más probable sería ${mejor.compuesto} (${pct(mejor.p)}).`;
-  const avisos = [];
-  const T = CFG.textos;
-  if (alarma) avisos.push(T.aviso_alarma);
-  if (x.rainfall_prev || x.field_lluvia_prev > 0 || ["INTERMEDIATE", "WET"].includes(x.compound_prev)) avisos.push(T.aviso_lluvia);
-  if (["INTERMEDIATE", "WET"].includes(x.compound_prev) && x.field_lluvia_prev >= 0.5) avisos.push(T.aviso_secado);
-  avisos.push(T.aviso_sc);
-  for (const r of raras) avisos.push(`Combinación poco común. ${r} La predicción se apoya en pocos casos parecidos.`);
-  $("#r-avisos").innerHTML = avisos.map((a) => `<li>${a}</li>`).join("");
-  const [vs, vb] = await Promise.all([dibujar("g-puntaje", "puntaje"), dibujar("g-prob-proba", "prob_proba")]);
-  await Promise.all([vs.data("puntaje", [{ p }]).runAsync(), vb.data("prob_proba", probs).runAsync()]);
+  const extra = [CFG.textos.aviso_sc];
+  if (p >= CFG.umbral) extra.unshift(CFG.textos.aviso_alarma);
+  for (const r of raras) extra.push(`Combinación poco común. ${r} La predicción se apoya en pocos casos parecidos.`);
+  await pintarResultado({ p, probs, avisos: avisosDe(x, extra), real: null });
+}
+
+// ---------- cambio de modo
+function cambiarModo(modo) {
+  sim.modo = modo;
+  $$(".modos button").forEach((b) => b.setAttribute("aria-selected", String(b.dataset.modo === modo)));
+  $("#modo-real").hidden = modo !== "real";
+  $("#formulario").hidden = modo !== "propio";
+  $("#r-real").hidden = true;
+  if (modo === "real") mostrarVueltaReal(); else evaluar();
 }
 
 async function proba() {
@@ -488,9 +593,17 @@ async function proba() {
     fetch("datos/modelo_compuesto.json").then((r) => r.json()),
   ]);
   prepararFormulario();
-  partirDeCasoReal();
+  prepararModoReal();
+  $$(".modos button").forEach((b) => b.addEventListener("click", () => cambiarModo(b.dataset.modo)));
   const c = CFG.caso_inicial;
   cargarEnFormulario(c, c._desc, c._real);
+  const vt = await dibujar("g-sim-tray", "trayectoria", "sim_tray");
+  vt.addEventListener("click", (ev, item) => {
+    const v = item && item.datum && item.datum.vuelta;
+    const k = sim.filas.findIndex((f) => f.vuelta === v);
+    if (k >= 0) { sim.i = k; mostrarVueltaReal(); }
+  });
+  await elegirCarrera(c._sk, c._piloto, c._vuelta);
 }
 
 // ------------------------------------------------------------------ inicio

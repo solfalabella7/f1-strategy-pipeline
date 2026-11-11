@@ -478,71 +478,119 @@
 <section class="seccion seccion-ancha simulador" id="proba" data-numero="05">
   <div class="seccion-cabeza">
     <p class="seccion-numero"><span class="etiqueta-tv"><b>SIM</b> STRATEGY SIMULATOR</span> Probá el modelo</p>
-    <h2>Armá una situación de carrera y mirá qué haría el modelo</h2>
-    <p class="bajada">El cálculo lo hacen en tu navegador los mismos dos random forest de la Entrega 3: cada árbol exportado tal cual, sin aproximaciones. Solo se aceptan valores dentro de lo que el modelo vio al entrenar (2023–2024).</p>
+    <h2>¿Para o sigue? Poné a prueba al modelo</h2>
+    <p class="bajada">Elegí una carrera real y recorrela vuelta a vuelta: vas a ver qué predijo el modelo y qué pasó de verdad. O armá tu propio escenario y pedile una predicción. El cálculo lo hacen los mismos dos random forest de la Entrega 3.</p>
+  </div>
+
+  <div class="modos segmentado" role="tablist" aria-label="Modo del simulador">
+    <button type="button" role="tab" id="t-real" aria-selected="true" aria-controls="modo-real" data-modo="real"><b>1</b> Vuelta real · ¿acierta?</button>
+    <button type="button" role="tab" id="t-propio" aria-selected="false" aria-controls="formulario" data-modo="propio"><b>2</b> Mi escenario · ¿qué predice?</button>
   </div>
 
   <div class="proba-grid">
-    <form class="formulario" id="formulario" novalidate>
-      <fieldset class="partir">
-        <legend>Partir de una situación real</legend>
-        <label>Carrera<select id="p-carrera"><option value="">Elegí una carrera</option></select></label>
-        <label>Piloto<select id="p-piloto" disabled><option value="">—</option></select></label>
-        <label>Vuelta<select id="p-vuelta" disabled><option value="">—</option></select></label>
-        <p class="partir-nota">El modelo <strong>no usa al piloto</strong>: usa su equipo y lo que pasó en sus vueltas anteriores. Elegir un piloto carga esa situación en el formulario para que la modifiques.</p>
-      </fieldset>
-      <div class="form-acciones">
-        <button type="button" class="boton boton-sec" id="b-ejemplo">Una vuelta al azar de 2025</button>
-        <span class="form-origen" id="f-origen"></span>
-      </div>
-      <div class="errores" id="errores" role="alert" hidden></div>
+    <div class="sim-izq">
 
-      <fieldset>
-        <legend>Carrera</legend>
-        <label>Circuito<select name="circuit_short_name"></select></label>
-        <label>Equipo<select name="team_name"></select></label>
-        <label>Vuelta que empieza<input type="number" name="lap_number" inputmode="numeric" step="1"></label>
-      </fieldset>
-
-      <fieldset>
-        <legend>El piloto, en la vuelta anterior</legend>
-        <label>Neumático puesto<select name="compound_prev"></select></label>
-        <label>Edad del neumático (vueltas)<input type="number" name="tyre_age_prev" inputmode="numeric" step="1"></label>
-        <label>Posición<input type="number" name="position_prev" inputmode="numeric" step="1"></label>
-        <label>Paradas ya hechas<input type="number" name="stops_before" inputmode="numeric" step="1"></label>
-        <div class="checks" role="group" aria-label="Compuestos ya usados en la carrera">
-          <span class="checks-titulo">Compuestos ya usados en la carrera</span>
-          <label class="check"><input type="checkbox" name="used_soft"> <span class="chip chip-soft">SOFT</span></label>
-          <label class="check"><input type="checkbox" name="used_medium"> <span class="chip chip-medium">MEDIUM</span></label>
-          <label class="check"><input type="checkbox" name="used_hard"> <span class="chip chip-hard">HARD</span></label>
+      <!-- MODO 1 · una vuelta real, con lo que pasó de verdad -->
+      <div class="sim-panel" id="modo-real" role="tabpanel" aria-labelledby="t-real">
+        <div class="sim-elegir">
+          <label class="control"><span class="control-etiqueta">Carrera</span><select id="s-carrera"></select></label>
+          <label class="control"><span class="control-etiqueta">Piloto</span><select id="s-piloto"></select></label>
         </div>
-      </fieldset>
+        <div class="sim-vuelta">
+          <button type="button" class="paso" id="s-prev" aria-label="Vuelta anterior">◀</button>
+          <div class="sim-vuelta-centro">
+            <span class="control-etiqueta">Vuelta <output id="s-vuelta-n">—</output></span>
+            <input type="range" id="s-vuelta" min="0" max="0" step="1" value="0" aria-label="Vuelta">
+          </div>
+          <button type="button" class="paso" id="s-next" aria-label="Vuelta siguiente">▶</button>
+        </div>
+        <div class="sim-atajos">
+          <button type="button" class="boton boton-sec" id="s-proxima">Ir a la próxima parada real</button>
+          <button type="button" class="boton boton-sec" id="b-ejemplo">Sorprendeme</button>
+          <button type="button" class="boton" id="s-editar">Editar esta situación →</button>
+        </div>
+        <h4 class="sim-sub">Lo que sabía el modelo al empezar la vuelta</h4>
+        <dl class="situacion" id="s-situacion"></dl>
+        <h4 class="sim-sub">Puntaje de parada de este piloto, vuelta a vuelta</h4>
+        <p class="panel-ayuda">Línea cian: puntaje · trazos: umbral {{ T.umbral }} · círculos: paradas reales · rombo: la vuelta elegida · franjas ámbar: safety car. Hacé clic en la línea para saltar a una vuelta.</p>
+        <figure class="grafico" id="g-sim-tray" aria-label="Puntaje de parada vuelta a vuelta"></figure>
+        <p class="partir-nota">La predicción que ves es la de un modelo que <strong>no vio esta carrera</strong>: en 2025, el modelo final; en 2023–2024, el de la validación cruzada que la dejó afuera. El piloto no es una variable del modelo; sí lo son su equipo y lo que pasó en sus vueltas anteriores.</p>
+      </div>
 
-      <fieldset>
-        <legend>El pelotón, en la vuelta anterior (autos en pista con cada neumático)</legend>
-        <label><span class="chip chip-soft">SOFT</span><input type="number" name="n_soft" inputmode="numeric" step="1" min="0"></label>
-        <label><span class="chip chip-medium">MEDIUM</span><input type="number" name="n_medium" inputmode="numeric" step="1" min="0"></label>
-        <label><span class="chip chip-hard">HARD</span><input type="number" name="n_hard" inputmode="numeric" step="1" min="0"></label>
-        <label><span class="chip chip-lluvia">LLUVIA</span><input type="number" name="n_lluvia" inputmode="numeric" step="1" min="0"></label>
-      </fieldset>
+      <!-- MODO 2 · un escenario propio -->
+      <form class="formulario" id="formulario" novalidate role="tabpanel" aria-labelledby="t-propio" hidden>
+        <div class="form-acciones">
+          <span class="form-origen" id="f-origen"></span>
+        </div>
+        <div class="errores" id="errores" role="alert" hidden></div>
 
-      <fieldset>
-        <legend>Clima, en la vuelta anterior</legend>
-        <label>Temperatura de pista (°C)<input type="number" name="track_temperature_prev" inputmode="decimal" step="0.1"></label>
-        <label>Temperatura del aire (°C)<input type="number" name="air_temperature_prev" inputmode="decimal" step="0.1"></label>
-        <label>Humedad (%)<input type="number" name="humidity_prev" inputmode="decimal" step="0.1"></label>
-        <label class="check check-solo"><input type="checkbox" name="rainfall_prev"> Llueve</label>
-      </fieldset>
+        <fieldset>
+          <legend>Carrera</legend>
+          <label>Circuito<select name="circuit_short_name"></select></label>
+          <label>Equipo<select name="team_name"></select></label>
+          <label>Vuelta que empieza<input type="number" name="lap_number" inputmode="numeric" step="1"></label>
+        </fieldset>
 
-    </form>
+        <fieldset>
+          <legend>El piloto, en la vuelta anterior</legend>
+          <label>Neumático puesto<select name="compound_prev"></select></label>
+          <label>Edad del neumático (vueltas)<input type="number" name="tyre_age_prev" inputmode="numeric" step="1"></label>
+          <label>Posición<input type="number" name="position_prev" inputmode="numeric" step="1"></label>
+          <label>Paradas ya hechas<input type="number" name="stops_before" inputmode="numeric" step="1"></label>
+          <div class="checks" role="group" aria-label="Compuestos ya usados en la carrera">
+            <span class="checks-titulo">Compuestos ya usados en la carrera</span>
+            <label class="check"><input type="checkbox" name="used_soft"> <span class="chip chip-soft">SOFT</span></label>
+            <label class="check"><input type="checkbox" name="used_medium"> <span class="chip chip-medium">MEDIUM</span></label>
+            <label class="check"><input type="checkbox" name="used_hard"> <span class="chip chip-hard">HARD</span></label>
+          </div>
+        </fieldset>
 
+        <fieldset>
+          <legend>El pelotón, en la vuelta anterior (autos en pista con cada neumático)</legend>
+          <label><span class="chip chip-soft">SOFT</span><input type="number" name="n_soft" inputmode="numeric" step="1" min="0"></label>
+          <label><span class="chip chip-medium">MEDIUM</span><input type="number" name="n_medium" inputmode="numeric" step="1" min="0"></label>
+          <label><span class="chip chip-hard">HARD</span><input type="number" name="n_hard" inputmode="numeric" step="1" min="0"></label>
+          <label><span class="chip chip-lluvia">LLUVIA</span><input type="number" name="n_lluvia" inputmode="numeric" step="1" min="0"></label>
+        </fieldset>
+
+        <fieldset>
+          <legend>Clima, en la vuelta anterior</legend>
+          <label>Temperatura de pista (°C)<input type="number" name="track_temperature_prev" inputmode="decimal" step="0.1"></label>
+          <label>Temperatura del aire (°C)<input type="number" name="air_temperature_prev" inputmode="decimal" step="0.1"></label>
+          <label>Humedad (%)<input type="number" name="humidity_prev" inputmode="decimal" step="0.1"></label>
+          <label class="check check-solo"><input type="checkbox" name="rainfall_prev"> Llueve</label>
+        </fieldset>
+        <p class="partir-nota">Cambiá cualquier valor y la predicción se recalcula al instante. Solo se aceptan valores dentro de lo que el modelo vio al entrenar (2023–2024); si no, te avisa qué corregir.</p>
+      </form>
+    </div>
+
+    <!-- Resultado: lo que predice el modelo y, con una vuelta real, lo que pasó -->
     <aside class="resultado" id="resultado" aria-live="polite">
-      <p class="volanta">Lo que diría el modelo</p>
+      <p class="volanta" id="r-volanta">Lo que predice el modelo</p>
       <p class="veredicto" id="r-veredicto">—</p>
+      <div class="decisiones">
+        <div class="decision" id="r-d-para">
+          <span class="decision-preg">¿Para en esta vuelta?</span>
+          <span class="decision-valor" id="r-para">—</span>
+          <span class="decision-det" id="r-para-det"></span>
+        </div>
+        <div class="decision" id="r-d-comp">
+          <span class="decision-preg">Neumático, si para</span>
+          <span class="decision-valor" id="r-comp">—</span>
+          <span class="decision-det" id="r-comp-det"></span>
+        </div>
+      </div>
+
+      <div class="comparacion" id="r-comparacion" hidden>
+        <span class="decision-preg">Lo que pasó de verdad</span>
+        <p class="comparacion-real" id="r-real-pasado"></p>
+        <p class="comparacion-juicio" id="r-juicio"></p>
+      </div>
+
       <p class="r-texto" id="r-texto"></p>
       <h4>Puntaje de parada</h4>
       <figure class="grafico grafico-mini" id="g-puntaje" aria-label="Puntaje de parada contra el umbral"></figure>
-      <h4>Neumático, si para</h4>
+      <h4>Probabilidad de cada neumático</h4>
       <figure class="grafico grafico-mini" id="g-prob-proba" aria-label="Probabilidad de cada neumático"></figure>
       <ul class="avisos" id="r-avisos"></ul>
       <p class="r-real" id="r-real" hidden></p>

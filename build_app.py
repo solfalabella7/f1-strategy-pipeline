@@ -367,7 +367,8 @@ def main() -> None:
     caso_inicial = {c: redondear(ini[c], 6) for c in M.FEATURES} | {
         c: int(ini[c]) for c in ["n_soft", "n_medium", "n_hard", "n_lluvia"]} | {
         "_desc": f"{ini['full_name']} · {ini['nombre']} · vuelta {int(ini['lap_number'])}",
-        "_real": f"paró y montó {ini['objetivo_compuesto']}"}
+        "_real": f"paró y montó {ini['objetivo_compuesto']}",
+        "_sk": int(ini["session_key"]), "_piloto": ini["name_acronym"], "_vuelta": int(ini["lap_number"])}
     # Combinaciones raras pero reales (el formulario las avisa sin bloquearlas): frecuencia en la población.
     tot = pob[["n_soft", "n_medium", "n_hard", "n_lluvia"]].sum(axis=1)
     propio = pob.compound_prev.map({"SOFT": "n_soft", "MEDIUM": "n_medium", "HARD": "n_hard",

@@ -93,7 +93,7 @@ Concepto: **el centro de análisis de una escudería**. La copa de martini se re
 | **03 El modelo:** qué logró, gráfico, explicación | Paradas anticipadas según el contexto |
 | Métrica y justificación, piso, validación, comparación con media ± desvío, ajuste, test, análisis de errores, variables | Desplegable de 03 |
 | **04 Explorá:** panorama, todos los registros, ≥ 2 controles que filtran de verdad, detalle de cada registro con el resultado del modelo | Temporada, tipo de parada, umbral, Gran Premio y piloto; mapa piloto × vuelta con tooltip y ficha al hacer clic |
-| **05 Probá el modelo:** ingreso de valores, validación, rechazo de valores no vistos, mensajes, predicción y probabilidades | Formulario con rangos de 2023–2024 y reglas de coherencia; puntaje contra umbral y probabilidad de cada neumático |
+| **05 Probá el modelo:** ingreso de valores, validación, rechazo de valores no vistos, mensajes, predicción y probabilidades | Dos modos: «Vuelta real» (carrera, piloto y vuelta a vuelta: predicción contra lo que pasó, con juicio de acierto) y «Mi escenario» (formulario con rangos de 2023–2024 y reglas de coherencia); en ambos, puntaje contra umbral y probabilidad de cada neumático |
 | Gráficos en Altair, colores coherentes, tallo legible sin interacción, copa interactiva | `src/graficos.py`; paleta validada con el validador de paletas: compuestos, contexto y cian del modelo |
 | Reproducible, script de construcción, README y dependencias | `build_app.py`, este archivo, `requirements-app.txt` |
 
@@ -113,7 +113,7 @@ La devolución de la Entrega 3 pedía mirar en qué forma se equivoca el modelo 
 - Navegador (Chrome, con Playwright), en escritorio de 1440 px y en móvil de 390 px:
   - Sin desborde horizontal; todos los gráficos se dibujan y ningún rótulo queda cortado.
   - Los filtros cambian los conteos: 2025 da 440 de 802 y coincide con la sección del modelo.
-  - El clic en una vuelta abre su ficha y «Probar esta vuelta» la lleva al formulario.
+  - El clic en una vuelta abre su ficha y «Probar esta vuelta» la abre en el simulador.
   - Los valores fuera de rango y las combinaciones imposibles se rechazan con un mensaje.
 
 ## Inconsistencias encontradas y cómo se resolvieron

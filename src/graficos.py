@@ -47,6 +47,17 @@ TEMAS = {
 }
 
 
+# Declaración explícita de los colores del tema (los valores los fija usar_tema).
+(TINTA, TINTA_2, TINTA_3, GRILLA, EJE, SUPERFICIE, MODELO, ACENTO, GRIS_ALARMA_APAGADA, GRIS_MEDIO, FONDO_BARRA, RIEL,
+ GRIS_APAGADO, RAMPA_MATRIZ_0, RAMPA_MATRIZ_1, RAMPA_ALARMA_0, RAMPA_ALARMA_1, BANDA_SC, GRIS_MDI, TEXTO_INVERSO,
+ COLOR_COMPUESTO, COLOR_CONTEXTO) = (TEMAS["oscuro"][k] for k in (
+    "TINTA", "TINTA_2", "TINTA_3", "GRILLA", "EJE", "SUPERFICIE", "MODELO", "ACENTO", "GRIS_ALARMA_APAGADA",
+    "GRIS_MEDIO", "FONDO_BARRA", "RIEL", "GRIS_APAGADO", "RAMPA_MATRIZ_0", "RAMPA_MATRIZ_1", "RAMPA_ALARMA_0",
+    "RAMPA_ALARMA_1", "BANDA_SC", "GRIS_MDI", "TEXTO_INVERSO", "COLOR_COMPUESTO", "COLOR_CONTEXTO"))
+TEMA = "oscuro"
+ESCALA_COMPUESTO = ESCALA_CONTEXTO = None
+
+
 def usar_tema(nombre: str) -> None:
     """Fija el tema de los gráficos que se construyan a continuación."""
     g = globals()
@@ -323,7 +334,14 @@ def grafico_trayectoria(umbral: float):
         x=x, y="puntaje:Q",
         tooltip=[alt.Tooltip("vuelta:Q", title="Vuelta"), alt.Tooltip("puntaje:Q", title="Puntaje", format=".3f"),
                  alt.Tooltip("compound_prev:N", title="Neumático"), alt.Tooltip("tyre_age_prev:Q", title="Edad")])
-    return config((sc + linea + regla + paradas + puntos).add_params(p_u).properties(width="container", height=180))
+    # Vuelta elegida (parámetro que fija la página; 0 = ninguna): una línea vertical y su punto.
+    p_v = alt.param(name="vuelta_sel", value=0)
+    actual = base.transform_filter("datum.vuelta == vuelta_sel")
+    linea_sel = actual.mark_rule(color=TINTA, strokeWidth=1.5, strokeDash=[2, 2]).encode(x=x)
+    punto_sel = actual.mark_point(size=170, shape="diamond", filled=True, color=TINTA, stroke=SUPERFICIE,
+                                  strokeWidth=1.5, opacity=1).encode(x=x, y="puntaje:Q")
+    return config((sc + linea + regla + paradas + puntos + linea_sel + punto_sel).add_params(p_u, p_v)
+                  .properties(width="container", height=180))
 
 
 def grafico_probabilidades(nombre_datos: str):

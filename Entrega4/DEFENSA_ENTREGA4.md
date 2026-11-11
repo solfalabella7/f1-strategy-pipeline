@@ -50,7 +50,18 @@ Si preguntan por el detalle, está en el desplegable del modelo, tabla «Qué co
 
 **Para mostrar:**
 - Bélgica 2025, piloto Albon: el mapa muestra a todo el pelotón pasando de intermedios a MEDIUM en las vueltas 11 a 13, y el modelo propone LLUVIA. Es el 0 de 26.
-- «Probar esta vuelta» lleva la vuelta al formulario y da el mismo resultado.
+- «Probar esta vuelta» abre esa vuelta en el simulador.
+
+**El simulador tiene dos modos:**
+- **1 · Vuelta real, ¿acierta?** Se elige carrera y piloto y se recorre la carrera con ◀ ▶ o con el deslizador. Muestra qué predijo el modelo (¿para?, ¿qué neumático?) y qué pasó de verdad, con un juicio:
+  - acierto completo;
+  - anticipó la parada pero no el neumático;
+  - parada no anticipada, con el motivo si fue safety car, lluvia o pista que se secaba;
+  - falsa alarma, con cuántas vueltas faltaban para la parada real;
+  - correcto sin alarma.
+  La predicción es la de un modelo que no vio esa carrera, la misma de «Explorá».
+- **2 · Mi escenario, ¿qué predice?** El formulario. «Editar esta situación» lleva ahí la vuelta real para probar variantes («¿y si el neumático tuviera 10 vueltas más?»). Lo calcula el navegador con los bosques exportados.
+- **Si preguntan por qué no se elige el piloto en el escenario:** el piloto no es una variable del modelo. Usa el equipo y la historia de sus vueltas anteriores, y un selector de piloto sería un control decorativo.
 
 ## 15:00–22:00 · Lo que hay que saber explicar
 

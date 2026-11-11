@@ -415,3 +415,52 @@ fieldset > label .chip { align-self: flex-start; }
 @media (min-width: 861px) {
   .pregunta, .idea, .torre, .portada-pie { max-width: min(760px, 50vw); }
 }
+
+/* ------------------------------------------------------------- SIM · simulador en dos modos */
+.modos { margin-top: 26px; display: flex; flex-wrap: wrap; width: fit-content; max-width: 100%; }
+.modos button { display: inline-flex; align-items: center; gap: 10px; padding: 13px 18px; font: 700 13.5px/1.2 var(--sans); letter-spacing: 0; text-align: left; }
+.modos button b { font: 700 12px/1 var(--mono); padding: 5px 7px; background: rgba(255,255,255,.08); }
+.modos button[aria-selected=true] { background: var(--rojo); color: #fff; }
+.modos button[aria-selected=true] b { background: rgba(0,0,0,.25); }
+.sim-panel { background: rgba(8,9,11,.7); border: 1px solid var(--linea); padding: 18px 20px 12px; }
+.sim-elegir { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px 14px; }
+.sim-vuelta { display: grid; grid-template-columns: 48px minmax(0, 1fr) 48px; gap: 12px; align-items: end; margin: 18px 0 10px; }
+.sim-vuelta-centro { display: flex; flex-direction: column; gap: 4px; }
+.sim-vuelta-centro output { font: 700 18px/1 var(--mono); color: var(--cian); }
+.paso { height: 44px; border: 1px solid var(--linea-2); background: var(--panel); color: var(--texto); font-size: 15px; cursor: pointer; transition: background .2s, border-color .2s; }
+.paso:hover:not(:disabled) { background: var(--metal); border-color: var(--cian); }
+.paso:disabled { opacity: .35; cursor: not-allowed; }
+.sim-vuelta input[type=range]::-webkit-slider-runnable-track { background: var(--metal); }
+.sim-atajos { display: flex; flex-wrap: wrap; gap: 8px; margin: 6px 0 18px; }
+.sim-atajos .boton { font-size: 13px; min-height: 40px; padding: 11px 20px 11px 14px; }
+.sim-sub { font: 700 11px/1.3 var(--mono); letter-spacing: .1em; text-transform: uppercase; color: var(--rojo); margin: 16px 0 10px; }
+.situacion { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0 22px; margin: 0 0 8px; }
+.situacion div { display: flex; flex-direction: column; gap: 4px; padding: 9px 0; border-bottom: 1px solid var(--linea); }
+.situacion dt { font: 600 10.5px/1.2 var(--mono); letter-spacing: .08em; text-transform: uppercase; color: var(--texto-3); }
+.situacion dd { margin: 0; font-size: 14.5px; color: var(--texto-2); }
+.situacion dd b { color: var(--texto); font: 700 16px/1 var(--mono); }
+.peloton { display: flex; height: 12px; width: 100%; max-width: 260px; margin-top: 4px; gap: 2px; }
+.peloton i { display: block; min-width: 3px; }
+.pel-soft { background: var(--soft); } .pel-medium { background: var(--medium); } .pel-hard { background: var(--hard); } .pel-lluvia { background: var(--lluvia); }
+@media (max-width: 560px) { .sim-elegir, .situacion { grid-template-columns: 1fr; } }
+
+.decisiones { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; margin: 6px 0 14px; }
+.decision { display: flex; flex-direction: column; gap: 6px; padding: 14px 14px 12px; background: var(--negro); border: 1px solid var(--linea); border-top: 3px solid var(--metal); }
+.decision.activa { border-top-color: var(--cian); }
+.decision-preg { font: 700 10.5px/1.2 var(--mono); letter-spacing: .1em; text-transform: uppercase; color: var(--texto-3); }
+.decision-valor { font: italic 900 26px/1 var(--display); text-transform: uppercase; }
+.decision.activa .decision-valor { color: var(--cian); }
+.decision-valor .chip { font-size: 14px; padding: 7px 10px 7px 24px; font-style: normal; }
+.decision-valor .chip::before { width: 10px; height: 10px; left: 8px; }
+.decision-det { font: 400 12px/1.4 var(--mono); color: var(--texto-3); }
+.comparacion { margin: 0 0 14px; padding: 14px 16px; border-left: 4px solid var(--texto-3); background: rgba(255,255,255,.04); }
+.comparacion-real { margin: 6px 0 8px; font: 700 17px/1.3 var(--display); }
+.comparacion-juicio { margin: 0; font-size: 14px; color: var(--texto-2); line-height: 1.5; }
+.comparacion-juicio b { color: var(--texto); }
+.comparacion.ok { border-left-color: var(--lima); background: rgba(198,255,61,.07); }
+.comparacion.ok .comparacion-juicio b { color: var(--lima); }
+.comparacion.parcial { border-left-color: var(--ambar); background: rgba(255,176,32,.07); }
+.comparacion.parcial .comparacion-juicio b { color: var(--ambar); }
+.comparacion.error { border-left-color: var(--rojo); background: rgba(255,30,45,.08); }
+.comparacion.error .comparacion-juicio b { color: #ff6b76; }
+.veredicto { font-size: 26px; }
