@@ -395,14 +395,19 @@ def main() -> None:
         t["rotulo"] = [f"{dec(a)} ± {dec(b)}" for a, b in zip(t.f1_validacion, t.desvio)]
         return t
 
+    # La sección «Lo que encontramos» va sobre fondo claro; el resto de la app, sobre fondo oscuro.
+    G.usar_tema("claro")
+    g_hallazgo = G.grafico_hallazgo(pd.DataFrame(h4["seco"]))
+    g_h1 = G.grafico_h1(pd.DataFrame(h1["histograma"]))
+    G.usar_tema("oscuro")
     graficos = {
         "datos": G.grafico_datos(datos_seccion_datos(d, carreras), carreras),
-        "hallazgo": G.grafico_hallazgo(pd.DataFrame(h4["seco"])),
-        "h1": G.grafico_h1(pd.DataFrame(h1["histograma"])),
+        "hallazgo": g_hallazgo,
+        "h1": g_h1,
         "modelo": G.grafico_modelo(ctx),
         "matriz": G.grafico_matriz(mat),
-        "familias_pit": G.grafico_familias(fam("pit", "Random forest"), "F1 clase «para» (validación)"),
-        "familias_comp": G.grafico_familias(fam("comp", "Random forest"), "F1 macro (validación)"),
+        "familias_pit": G.grafico_familias(fam("pit", "Random forest"), "F1 «para»"),
+        "familias_comp": G.grafico_familias(fam("comp", "Random forest"), "F1 macro"),
         "umbral": G.grafico_umbral(tabla_umbral, umbral),
         "imp_pit": G.grafico_importancia(pd.DataFrame(sel["importancia"]["pit"]), "Caída del F1"),
         "imp_comp": G.grafico_importancia(pd.DataFrame(sel["importancia"]["comp"]), "Caída del F1 macro"),
@@ -462,6 +467,7 @@ def main() -> None:
     (DIR_SITIO / "index.html").write_text(html, encoding="utf-8")
     for f in ["estilos.css", "app.js", "modelo.js"]:
         shutil.copyfile(DIR_APP / f, DIR_SITIO / f)
+    shutil.copytree(DIR_APP / "img", DIR_SITIO / "img", dirs_exist_ok=True)
     (DIR_SITIO / ".nojekyll").write_text("", encoding="utf-8")
 
     construccion = {

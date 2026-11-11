@@ -7,74 +7,121 @@
 <meta name="description" content="Proyecto integrador de Ciencia de Datos (UTN FRM 2026): qué se puede anticipar de las paradas en boxes de la Fórmula 1 con lo que se sabe al empezar cada vuelta.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Newsreader:opsz,wght@6..72,400;6..72,500;6..72,600&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Titillium+Web:ital,wght@0,400;0,600;0,700;0,900;1,700;1,900&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="estilos.css">
-<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><circle cx='16' cy='16' r='13' fill='none' stroke='%235b46c9' stroke-width='5'/><circle cx='16' cy='16' r='4' fill='%23d7263d'/></svg>">
+<link rel="preload" as="image" href="img/portada-monoplaza.webp">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='6' fill='%23121417'/><path d='M6 22 L14 10 H26 L18 22 Z' fill='%23ff1e2d'/></svg>">
 <script src="https://cdn.jsdelivr.net/npm/vega@5.30.0/build/vega.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/vega-lite@5.20.1/build/vega-lite.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/vega-embed@6.26.0/build/vega-embed.min.js"></script>
 </head>
 <body>
+<a class="saltar" href="#datos">Saltar al contenido</a>
 
+<!-- Barra superior: la navegación es un tablero de tiempos por sectores.
+     El tallo son tres sectores (S1–S3); la copa es la calle de boxes (PIT). -->
 <nav class="barra" aria-label="Secciones">
-  <a class="marca" href="#inicio"><span class="marca-punto" aria-hidden="true"></span>Ventana de boxes</a>
-  <ol class="barra-enlaces">
-    <li><a href="#datos"><span>01</span> Los datos</a></li>
-    <li><a href="#hallazgo"><span>02</span> Lo que encontramos</a></li>
-    <li><a href="#modelo"><span>03</span> El modelo</a></li>
-    <li class="copa-enlace"><a href="#explora"><span>04</span> Explorá</a></li>
-    <li class="copa-enlace"><a href="#proba"><span>05</span> Probá el modelo</a></li>
+  <a class="marca" href="#inicio" aria-label="Ventana de boxes, inicio"><span class="marca-logo" aria-hidden="true"></span><span class="marca-texto">VENTANA<b>DE BOXES</b></span></a>
+  <ol class="sectores">
+    <li><a href="#datos" data-sector="1"><span class="s-id">S1</span><span class="s-nombre">Los datos</span><span class="s-barra"><i></i></span></a></li>
+    <li><a href="#hallazgo" data-sector="2"><span class="s-id">S2</span><span class="s-nombre">Hallazgo</span><span class="s-barra"><i></i></span></a></li>
+    <li><a href="#modelo" data-sector="3"><span class="s-id">S3</span><span class="s-nombre">El modelo</span><span class="s-barra"><i></i></span></a></li>
+    <li class="pit"><a href="#explora" data-sector="4"><span class="s-id">PIT</span><span class="s-nombre">Explorá</span><span class="s-barra"><i></i></span></a></li>
+    <li class="pit"><a href="#proba" data-sector="5"><span class="s-id">SIM</span><span class="s-nombre">Probá</span><span class="s-barra"><i></i></span></a></li>
   </ol>
-  <div class="progreso" aria-hidden="true"><div class="progreso-barra"></div></div>
 </nav>
 
-<!-- ================================================================== PORTADA -->
+<!-- ================================================================== PORTADA · RACE OVERVIEW -->
 <header class="portada" id="inicio">
+  <div class="portada-foto" aria-hidden="true"><img src="img/portada-monoplaza.webp" alt="" width="1200" height="630" fetchpriority="high"></div>
+  <svg class="portada-velocidad" viewBox="0 0 1200 600" preserveAspectRatio="none" aria-hidden="true">
+    <g stroke="currentColor" stroke-linecap="round">
+      <line x1="0" y1="140" x2="520" y2="140" stroke-width="1.5"/><line x1="60" y1="210" x2="420" y2="210" stroke-width="1"/>
+      <line x1="0" y1="430" x2="460" y2="430" stroke-width="1.5"/><line x1="120" y1="490" x2="380" y2="490" stroke-width="1"/>
+    </g>
+  </svg>
   <div class="portada-interior">
-    <p class="volanta">F1 Strategy Pipeline · Proyecto integrador de Ciencia de Datos · UTN FRM 2026</p>
-    <h1>Ventana de boxes</h1>
-    <p class="pregunta"><span>La pregunta</span>¿Se puede anticipar, con lo que se sabe al empezar cada vuelta, si un piloto de Fórmula 1 va a entrar a boxes y qué neumático va a montar?</p>
+    <div class="portada-meta">
+      <span class="etiqueta-tv"><b>RACE OVERVIEW</b> Proyecto integrador · Ciencia de Datos</span>
+      <span class="mono">UTN FRM · 2026 · GRUPO 5K10-10</span>
+    </div>
+    <div class="luces" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i></div>
+    <h1><span class="h1-chico">F1 Strategy Pipeline</span>Ventana<br>de boxes</h1>
+    <p class="pregunta"><span class="mono">LA PREGUNTA</span>¿Se puede anticipar, con lo que se sabe al empezar cada vuelta, si un piloto de Fórmula 1 va a entrar a boxes y qué neumático va a montar?</p>
     <p class="idea">El modelo detecta cuándo se abre la ventana de parada, pero no ve venir las paradas que provocan el safety car y la lluvia.</p>
 
-    <div class="kpis">
-      <div class="kpi kpi-fuerte">
-        <p class="kpi-numero">{{ T.pct_seco }}</p>
-        <p class="kpi-texto">de las paradas <strong>en seco y sin safety car</strong> tuvo la alarma encendida en esa vuelta</p>
-        <p class="kpi-base">{{ T.seco_a }} de {{ T.seco_n }} paradas de 2025, una temporada que el modelo no vio al entrenar</p>
-      </div>
-      <div class="kpi kpi-debil">
-        <p class="kpi-numero">{{ T.pct_reactivas }}</p>
-        <p class="kpi-texto">de las paradas <strong>con safety car o a neumáticos de lluvia</strong> tuvo la alarma encendida</p>
-        <p class="kpi-base">{{ T.reactivas_a }} de {{ T.reactivas_n }} paradas de 2025</p>
-      </div>
-      <div class="kpi">
-        <p class="kpi-numero">{{ T.pct_episodios }}</p>
-        <p class="kpi-texto">de las rachas de alarma <strong>terminan en una parada real</strong>, dentro de la racha o hasta 3 vueltas después</p>
-        <p class="kpi-base">{{ T.episodios_ok }} de {{ T.episodios }} rachas en 2025 · duran {{ T.episodio_mediana }} vueltas (mediana)</p>
-      </div>
+    <ol class="torre" aria-label="Tres números que sostienen la idea">
+      <li class="torre-fila">
+        <span class="torre-pos">P1</span>
+        <span class="torre-num" data-contar="{{ T.pct_seco }}">{{ T.pct_seco }}</span>
+        <span class="torre-texto">de las paradas <strong>en seco y sin safety car</strong> tuvo la alarma encendida en esa vuelta<small>{{ T.seco_a }} de {{ T.seco_n }} paradas de 2025, una temporada que el modelo no vio</small></span>
+      </li>
+      <li class="torre-fila torre-debil">
+        <span class="torre-pos">P2</span>
+        <span class="torre-num" data-contar="{{ T.pct_reactivas }}">{{ T.pct_reactivas }}</span>
+        <span class="torre-texto">de las paradas <strong>con safety car o a neumáticos de lluvia</strong> tuvo la alarma encendida<small>{{ T.reactivas_a }} de {{ T.reactivas_n }} paradas de 2025</small></span>
+      </li>
+      <li class="torre-fila">
+        <span class="torre-pos">P3</span>
+        <span class="torre-num" data-contar="{{ T.pct_episodios }}">{{ T.pct_episodios }}</span>
+        <span class="torre-texto">de las rachas de alarma <strong>terminan en una parada real</strong>, en la racha o hasta 3 vueltas después<small>{{ T.episodios_ok }} de {{ T.episodios }} rachas · duran {{ T.episodio_mediana }} vueltas (mediana)</small></span>
+      </li>
+    </ol>
+    <div class="portada-pie">
+      <a class="boton-largada" href="#datos"><span>LIGHTS OUT</span> Empezar el recorrido</a>
+      <p class="portada-nota">Cuando hay parada, el modelo también acierta el neumático en el <strong>{{ T.acc_comp }}</strong> de los casos (montar siempre HARD acierta el {{ T.acc_piso }}).</p>
     </div>
-    <p class="portada-nota">Cuando hay parada, el modelo también acierta el neumático en el <strong>{{ T.acc_comp }}</strong> de los casos (montar siempre HARD acierta el {{ T.acc_piso }}). Datos: {{ T.carreras_validas }} carreras de 2023 a 2025 de la API pública OpenF1.</p>
-    <a class="bajar" href="#datos">Empezar el recorrido <span aria-hidden="true">↓</span></a>
+  </div>
+  <div class="cinta" aria-label="Datos del proyecto">
+    <span><b>{{ T.carreras_validas }}</b> carreras</span><span><b>{{ T.vueltas_validas }}</b> vueltas</span><span><b>{{ T.paradas_reales }}</b> paradas</span><span><b>2023–2025</b> temporadas</span><span><b>OpenF1</b> API pública</span><span><b>2</b> random forest</span>
   </div>
 </header>
 
+<!-- El recorrido: la copa de martini como un circuito. El tallo es la vuelta guiada; la copa, los boxes. -->
+<section class="recorrido" aria-label="Cómo se recorre la aplicación">
+  <svg class="recorrido-pista" viewBox="0 0 1000 120" preserveAspectRatio="none" aria-hidden="true">
+    <path d="M10 60 H560 C600 60 610 20 650 20 H990" fill="none" stroke="currentColor" stroke-width="3" stroke-dasharray="2 10" stroke-linecap="round"/>
+  </svg>
+  <ol class="recorrido-pasos">
+    <li><span class="mono">S1</span> Los datos</li>
+    <li><span class="mono">S2</span> Lo que encontramos</li>
+    <li><span class="mono">S3</span> El modelo</li>
+    <li class="pit"><span class="mono">PIT LANE</span> Tu turno: explorá y probá</li>
+  </ol>
+  <p class="recorrido-texto"><b>Vuelta de formación.</b> Primero te guiamos por tres sectores, cada uno con un hallazgo. <b>Después se abren los boxes:</b> manejás vos los datos y el modelo, ya sabiendo qué mirar.</p>
+</section>
+
 <main>
-<!-- ================================================================== TALLO -->
-<div class="tramo-etiqueta"><span>El recorrido</span> Tres pasos para entender qué encontramos</div>
 
 <!-- 01 · LOS DATOS -->
-<section class="seccion" id="datos">
+<section class="seccion garage" id="datos" data-numero="01">
   <div class="seccion-cabeza">
-    <p class="seccion-numero">01 · Los datos</p>
+    <p class="seccion-numero"><span class="etiqueta-tv"><b>S1</b> THE DATA GARAGE</span> Los datos</p>
     <h2>Solo 3 de cada 100 vueltas terminan en boxes, y las grandes tandas de paradas llegan con safety car o lluvia</h2>
     <p class="bajada">{{ T.paradas_reales }} paradas en {{ T.vueltas_validas }} vueltas de {{ T.carreras_validas }} carreras ({{ T.pct_paradas }}). Cada fila es una carrera; cada círculo, una vuelta en la que paró al menos un piloto, y su área indica cuántos.</p>
   </div>
-  <figure class="grafico grafico-alto" id="g-datos" aria-label="Paradas por vuelta en cada carrera"></figure>
+  <dl class="telemetria" aria-label="El dataset en números">
+    <div><dt>Vueltas con etiqueta</dt><dd data-contar="{{ T.vueltas_validas }}">{{ T.vueltas_validas }}</dd></div>
+    <div><dt>Paradas en boxes</dt><dd data-contar="{{ T.paradas_reales }}">{{ T.paradas_reales }}</dd></div>
+    <div class="destacado"><dt>Vueltas que terminan en boxes</dt><dd>{{ T.pct_paradas }}</dd></div>
+    <div><dt>Carreras · 2023–2025</dt><dd data-contar="{{ T.carreras_validas }}">{{ T.carreras_validas }}</dd></div>
+  </dl>
+  <div class="pantalla" data-etiqueta="TELEMETRÍA · PARADAS POR VUELTA Y CARRERA">
+    <figure class="grafico grafico-alto" id="g-datos" aria-label="Paradas por vuelta en cada carrera"></figure>
+  </div>
   <div class="que-mirar">
     <h3>Qué mirar</h3>
     <p>La mayoría de los círculos son chicos y grises: paradas de uno o dos pilotos, planificadas, en seco. Los círculos grandes —diez o más autos que entran juntos— son ámbar (safety car en pista) o azules (cambio a neumáticos de lluvia). Esa diferencia es la que va a explicar dónde acierta y dónde falla el modelo.</p>
     <p>Que las paradas sean tan pocas obliga a no medir con <em>accuracy</em>: un modelo que nunca dice «parar» acertaría el {{ T.test_nunca_acc }} de las vueltas de 2025 sin servir para nada.</p>
   </div>
+  <ol class="pipeline" aria-label="Del dato crudo al modelo">
+    <li><span class="mono">FUENTE</span><b>OpenF1</b><small>API pública v1</small></li>
+    <li><span class="mono">BRONCE</span><b>JSON</b><small>respuestas tal como llegan</small></li>
+    <li><span class="mono">SILVER</span><b>{{ T.filas_silver }}</b><small>vueltas · {{ T.carreras_silver }} carreras</small></li>
+    <li><span class="mono">CON ETIQUETA</span><b>{{ T.vueltas_validas }}</b><small>vueltas · {{ T.carreras_validas }} carreras</small></li>
+    <li><span class="mono">CON HISTORIA</span><b>{{ T.poblacion }}</b><small>vueltas que se predicen</small></li>
+    <li class="split"><span class="mono">TRAIN · TEST</span><b>{{ T.train_v }} · {{ T.test_v }}</b><small>2023–24 · 2025</small></li>
+  </ol>
 
   <details class="como">
     <summary><span>Cómo lo sabemos</span> Fuente, filtros, cantidades y columnas descartadas</summary>
@@ -123,13 +170,15 @@
 </section>
 
 <!-- 02 · LO QUE ENCONTRAMOS -->
-<section class="seccion" id="hallazgo">
+<section class="seccion analisis" id="hallazgo" data-numero="02">
   <div class="seccion-cabeza">
-    <p class="seccion-numero">02 · Lo que encontramos</p>
+    <p class="seccion-numero"><span class="etiqueta-tv"><b>S2</b> PERFORMANCE ANALYSIS</span> Lo que encontramos</p>
     <h2>Con safety car los equipos cambian de plan: en seco, el HARD baja del {{ T.h4_sin_hard }} al {{ T.h4_con_hard }} de las paradas</h2>
     <p class="bajada">Neumático montado en las paradas a compuestos de seco, según haya o no safety car en pista ({{ T.h4_n_con }} paradas con safety car y {{ T.h4_n_sin }} sin).</p>
   </div>
-  <figure class="grafico" id="g-hallazgo" aria-label="Porcentaje de cada compuesto con y sin safety car"></figure>
+  <div class="pantalla pantalla-clara" data-etiqueta="COMPUESTO MONTADO · PARADAS EN SECO">
+    <figure class="grafico" id="g-hallazgo" aria-label="Porcentaje de cada compuesto con y sin safety car"></figure>
+  </div>
   <div class="que-mirar">
     <h3>Qué mirar</h3>
     <p>La distancia entre el círculo y el rombo de cada fila. Con safety car la parada cuesta menos tiempo y se aprovecha para poner un neumático para menos vueltas: crece el SOFT ({{ T.h4_sin_soft }} → {{ T.h4_con_soft }}) y el MEDIUM ({{ T.h4_sin_med }} → {{ T.h4_con_med }}), y cae el HARD. Son paradas que responden a algo que pasa en la carrera, no a un plan escrito antes de largar.</p>
@@ -169,18 +218,26 @@
 </section>
 
 <!-- 03 · EL MODELO -->
-<section class="seccion" id="modelo">
+<section class="seccion lab" id="modelo" data-numero="03">
   <div class="seccion-cabeza">
-    <p class="seccion-numero">03 · El modelo</p>
+    <p class="seccion-numero"><span class="etiqueta-tv"><b>S3</b> INTELLIGENCE LAB</span> El modelo</p>
     <h2>El modelo anticipa 2 de cada 3 paradas en seco, pero casi ninguna de las que provocan el safety car o la lluvia</h2>
     <p class="bajada">Paradas reales de 2025 con la alarma encendida en esa misma vuelta (puntaje del modelo ≥ {{ T.umbral }}), según el contexto de la parada.</p>
   </div>
-  <figure class="grafico" id="g-modelo" aria-label="Porcentaje de paradas anticipadas por contexto"></figure>
+  <div class="pantalla" data-etiqueta="TEST 2025 · PARADAS CON ALARMA EN ESA VUELTA">
+    <figure class="grafico" id="g-modelo" aria-label="Porcentaje de paradas anticipadas por contexto"></figure>
+  </div>
   <div class="que-mirar">
     <h3>Qué mirar</h3>
     <p>Las tres barras usan el mismo modelo, el mismo umbral y la misma temporada. Cuando la parada es parte del plan —un neumático que se gasta— el modelo la ve venir: la alarma se prende varias vueltas antes y se apaga al parar. Cuando la parada es una reacción a algo que pasa en la pista, llega sin aviso: con safety car anticipa {{ T.sc_a }} de {{ T.sc_n }} y a neumáticos de lluvia {{ T.ll_a }} de {{ T.ll_n }}.</p>
     <p>El precio de vigilar la ventana son las falsas alarmas: de las {{ T.test_alarmas }} vueltas con alarma en 2025, solo el {{ T.test_prec }} es una parada en esa vuelta exacta. Sirve como aviso de «se abrió la ventana», no como orden de «entrá ahora».</p>
   </div>
+  <ol class="flujo" aria-label="Cómo decide el modelo en cada vuelta">
+    <li><span class="mono">ENTRADA</span><b>La vuelta que empieza</b><small>piloto, carrera, número de vuelta, circuito y equipo</small></li>
+    <li><span class="mono">HISTORIA CAUSAL</span><b>18 variables</b><small>solo de vueltas anteriores: neumático, paradas, pelotón y clima</small></li>
+    <li class="cian"><span class="mono">BOSQUE 1 · 150 ÁRBOLES</span><b>Puntaje de parada</b><small>¿supera {{ T.umbral }}? → alarma</small></li>
+    <li class="cian"><span class="mono">BOSQUE 2 · 150 ÁRBOLES</span><b>Neumático</b><small>probabilidad de SOFT, MEDIUM, HARD o LLUVIA</small></li>
+  </ol>
   <div class="mini-kpis">
     <div><p class="mk-n">{{ T.test_f1 }}</p><p>F1 de la clase «para» en 2025 · «siempre parar» da {{ T.test_siempre }}</p></div>
     <div><p class="mk-n">{{ T.comp_f1 }}</p><p>F1 macro del neumático en las paradas reales · «siempre HARD» da {{ T.comp_piso_f1 }}</p></div>
@@ -329,12 +386,15 @@
 </section>
 
 <!-- ================================================================== COPA -->
-<div class="tramo-etiqueta tramo-copa"><span>Tu turno</span> Revisá los datos y probá el modelo</div>
+<div class="pit-lane" role="presentation"><span class="pit-lane-pit" aria-hidden="true">PIT</span>
+  <div class="pit-lane-texto"><span class="mono">PIT LANE OPEN</span><strong>Boxes abiertos.<br>Tu turno.</strong><p>Ya sabés qué mirar. Ahora revisá cada carrera vuelta a vuelta y armá tus propios escenarios.</p></div>
+</div>
 
 <!-- 04 · EXPLORÁ -->
-<section class="seccion seccion-ancha" id="explora">
+<section class="seccion seccion-ancha race-control" id="explora" data-numero="04">
+  <figure class="circuito" aria-hidden="true"><img src="img/circuito-marina-bay.webp" alt="" loading="lazy" width="1252" height="704"><figcaption class="mono">MARINA BAY · SINGAPUR · 1 DE LOS 24 CIRCUITOS DEL DATASET</figcaption></figure>
   <div class="seccion-cabeza">
-    <p class="seccion-numero">04 · Explorá</p>
+    <p class="seccion-numero"><span class="etiqueta-tv"><b>PIT</b> RACE CONTROL</span> Explorá</p>
     <h2>Todas las paradas, carrera por carrera</h2>
     <p class="bajada">Cada vuelta tiene la predicción de un modelo que <strong>no vio esa carrera</strong>: en 2025, el modelo final; en 2023–2024, el de la validación cruzada que dejó afuera esa carrera.</p>
   </div>
@@ -370,7 +430,7 @@
   <div class="explora-grid">
     <div class="panel">
       <h3 class="panel-titulo">Panorama · paradas reales por carrera</h3>
-      <p class="panel-ayuda">Violeta: el modelo tenía la alarma encendida en la vuelta de la parada. Hacé clic en una carrera para abrirla.</p>
+      <p class="panel-ayuda">Cian: el modelo tenía la alarma encendida en la vuelta de la parada. Hacé clic en una carrera para abrirla.</p>
       <figure class="grafico" id="g-panorama" aria-label="Paradas por carrera"></figure>
     </div>
     <div class="panel">
@@ -382,7 +442,7 @@
         <label class="control"><span class="control-etiqueta">Gran Premio</span><select id="c-carrera"></select></label>
         <label class="control"><span class="control-etiqueta">Piloto</span><select id="c-piloto"><option value="">Todos</option></select></label>
       </div>
-      <p class="panel-ayuda">Cada celda es una vuelta de un piloto. Gris: sin alarma. Violeta: alarma encendida, más oscuro cuanto mayor el puntaje. Los círculos son las paradas reales, con el color del neumático que se montó. Pasá el mouse para ver el detalle o hacé clic en una celda.</p>
+      <p class="panel-ayuda">Cada celda es una vuelta de un piloto. Gris: sin alarma. Cian: alarma encendida, más claro cuanto mayor el puntaje. Los círculos son las paradas reales, con el color del neumático que se montó. Pasá el mouse para ver el detalle o hacé clic en una celda.</p>
       <figure class="grafico grafico-mapa" id="g-carrera" aria-label="Mapa de la carrera"></figure>
     </div>
   </div>
@@ -415,17 +475,24 @@
 </section>
 
 <!-- 05 · PROBÁ EL MODELO -->
-<section class="seccion seccion-ancha" id="proba">
+<section class="seccion seccion-ancha simulador" id="proba" data-numero="05">
   <div class="seccion-cabeza">
-    <p class="seccion-numero">05 · Probá el modelo</p>
+    <p class="seccion-numero"><span class="etiqueta-tv"><b>SIM</b> STRATEGY SIMULATOR</span> Probá el modelo</p>
     <h2>Armá una situación de carrera y mirá qué haría el modelo</h2>
     <p class="bajada">El cálculo lo hacen en tu navegador los mismos dos random forest de la Entrega 3: cada árbol exportado tal cual, sin aproximaciones. Solo se aceptan valores dentro de lo que el modelo vio al entrenar (2023–2024).</p>
   </div>
 
   <div class="proba-grid">
     <form class="formulario" id="formulario" novalidate>
+      <fieldset class="partir">
+        <legend>Partir de una situación real</legend>
+        <label>Carrera<select id="p-carrera"><option value="">Elegí una carrera</option></select></label>
+        <label>Piloto<select id="p-piloto" disabled><option value="">—</option></select></label>
+        <label>Vuelta<select id="p-vuelta" disabled><option value="">—</option></select></label>
+        <p class="partir-nota">El modelo <strong>no usa al piloto</strong>: usa su equipo y lo que pasó en sus vueltas anteriores. Elegir un piloto carga esa situación en el formulario para que la modifiques.</p>
+      </fieldset>
       <div class="form-acciones">
-        <button type="button" class="boton boton-sec" id="b-ejemplo">Cargar un caso real de 2025</button>
+        <button type="button" class="boton boton-sec" id="b-ejemplo">Una vuelta al azar de 2025</button>
         <span class="form-origen" id="f-origen"></span>
       </div>
       <div class="errores" id="errores" role="alert" hidden></div>
@@ -485,10 +552,12 @@
 </main>
 
 <footer class="pie">
+  <div class="pie-bandera" aria-hidden="true"></div>
   <div class="pie-interior">
     <div>
-      <p class="marca"><span class="marca-punto" aria-hidden="true"></span>Ventana de boxes</p>
+      <p class="marca"><span class="marca-logo" aria-hidden="true"></span><span class="marca-texto">VENTANA<b>DE BOXES</b></span></p>
       <p>Grupo 5K10-10 · Castillo, Expósito, Epifani, Falabella, Farías y Camacho · Ciencia de Datos, UTN Facultad Regional Mendoza, 2026.</p>
+      <p>Imágenes: monoplaza de la portada y trazado de Marina Bay provistos por el grupo, usados con fines académicos. Gráficos e ilustraciones: propios.</p>
       <p>Datos: <a href="https://openf1.org/" target="_blank" rel="noopener">OpenF1</a>. Código, pipeline y notebooks: <a href="https://github.com/solfalabella7/f1-strategy-pipeline" target="_blank" rel="noopener">github.com/solfalabella7/f1-strategy-pipeline</a>.</p>
     </div>
     <div class="pie-repro">

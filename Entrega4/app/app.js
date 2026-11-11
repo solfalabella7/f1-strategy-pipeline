@@ -25,20 +25,71 @@ async function dibujar(id, clave) {
   return r.view;
 }
 
-// ------------------------------------------------------------------ navegación
+// ------------------------------------------------------------------ navegación por sectores
+// Cada sección es un sector: la barra se llena mientras se recorre (rojo) y queda en lima al completarlo.
 function navegacion() {
-  const enlaces = $$(".barra-enlaces a");
+  const enlaces = $$(".sectores a");
   const secciones = enlaces.map((a) => document.querySelector(a.getAttribute("href")));
-  const barra = $(".progreso-barra");
-  const alDesplazar = () => {
-    const h = document.documentElement;
-    barra.style.width = `${(100 * h.scrollTop) / Math.max(1, h.scrollHeight - h.clientHeight)}%`;
-    let activo = -1;
-    secciones.forEach((s, i) => { if (s && s.getBoundingClientRect().top < 140) activo = i; });
-    enlaces.forEach((a, i) => a.classList.toggle("activo", i === activo));
+  const actualizar = () => {
+    const y = 120;
+    enlaces.forEach((a, i) => {
+      const s = secciones[i];
+      if (!s) return;
+      const r = s.getBoundingClientRect();
+      const avance = Math.min(1, Math.max(0, (y - r.top) / Math.max(1, r.height)));
+      a.querySelector(".s-barra i").style.width = `${avance * 100}%`;
+      a.classList.toggle("activo", r.top <= y && r.bottom > y);
+      a.classList.toggle("completo", r.bottom <= y);
+    });
   };
-  addEventListener("scroll", alDesplazar, { passive: true });
-  alDesplazar();
+  addEventListener("scroll", actualizar, { passive: true });
+  addEventListener("resize", actualizar);
+  actualizar();
+}
+
+// ------------------------------------------------------------------ movimiento
+const SIN_MOVIMIENTO = matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+// Números que cuentan hasta su valor la primera vez que aparecen; el texto final es siempre el real.
+function contadores() {
+  const animar = (el) => {
+    const final = el.dataset.contar;
+    const m = final.match(/[\d.]+(,\d+)?/);
+    if (!m || SIN_MOVIMIENTO) return;
+    const objetivo = Number(m[0].replace(/\./g, "").replace(",", "."));
+    const decimales = m[1] ? m[1].length - 1 : 0;
+    const t0 = performance.now();
+    const paso = (t) => {
+      const k = Math.min(1, (t - t0) / 1100);
+      el.textContent = final.replace(m[0], fmt(objetivo * (1 - Math.pow(1 - k, 3)), decimales));
+      if (k < 1) requestAnimationFrame(paso); else el.textContent = final;
+    };
+    requestAnimationFrame(paso);
+  };
+  const io = new IntersectionObserver((entradas) => entradas.forEach((e) => {
+    if (e.isIntersecting) { io.unobserve(e.target); animar(e.target); }
+  }), { threshold: 0.6 });
+  $$("[data-contar]").forEach((el) => io.observe(el));
+}
+
+// Bloques que aparecen al entrar en pantalla.
+function aparecer() {
+  if (SIN_MOVIMIENTO) return;
+  const els = $$(".seccion-cabeza, .pantalla, .telemetria, .pipeline, .flujo, .mini-kpis, .que-mirar, .controles, .panel, .proba-grid");
+  els.forEach((el) => el.classList.add("reveal"));
+  const io = new IntersectionObserver((entradas) => entradas.forEach((e) => {
+    if (e.isIntersecting) { e.target.classList.add("visible"); io.unobserve(e.target); }
+  }), { threshold: 0.08, rootMargin: "0px 0px -40px 0px" });
+  els.forEach((el) => io.observe(el));
+}
+
+// Relleno del deslizador de umbral (pista cian hasta el valor elegido).
+function rellenoUmbral() {
+  const r = $("#c-umbral");
+  const pintar = () => r.style.setProperty("--p", `${(100 * (r.value - r.min)) / (r.max - r.min)}%`);
+  r.addEventListener("input", pintar);
+  pintar();
+  return pintar;
 }
 
 // ------------------------------------------------------------------ tallo
@@ -194,6 +245,7 @@ async function explora() {
   const fijarUmbral = async (u) => {
     estado.umbral = u;
     $("#c-umbral").value = u;
+    pintarUmbral();
     $("#o-umbral").textContent = fmt(u, 3);
     await Promise.all(["panorama", "carrera", "trayectoria"].filter((k) => vistas[k])
       .map((k) => vistas[k].signal("umbral", u).runAsync()));
@@ -248,8 +300,13 @@ function prepararFormulario() {
     f.elements[nombre].max = r.max;
     f.elements[nombre].placeholder = `${fmt(r.min, DECIMALES.includes(nombre) ? 1 : 0)} a ${fmt(r.max, DECIMALES.includes(nombre) ? 1 : 0)}`;
   }
-  f.addEventListener("input", () => { if (origenCaso) { origenCaso.modificado = true; } evaluar(); });
-  f.addEventListener("change", evaluar);
+  // Solo los campos con nombre son variables del modelo; los menús de «partir de una situación real» no.
+  f.addEventListener("input", (e) => {
+    if (!e.target.name) return;
+    if (origenCaso) origenCaso.modificado = true;
+    evaluar();
+  });
+  f.addEventListener("change", (e) => { if (e.target.name) evaluar(); });
   $("#b-ejemplo").addEventListener("click", ejemploAlAzar);
 }
 
@@ -262,6 +319,45 @@ function cargarEnFormulario(fila, desc, real) {
   // Los decimales del clima se guardan con su valor exacto para reproducir la predicción del dataset.
   origenCaso = { desc, real, exacto: Object.fromEntries(DECIMALES.map((n) => [n, fila[n]])), modificado: false };
   evaluar();
+}
+
+// Partir de una situación real: carrera → piloto → vuelta. Carga esa vuelta en el formulario.
+const cacheCarreras = {};
+async function datosCarrera(sk) {
+  if (!cacheCarreras[sk]) cacheCarreras[sk] = expandir(await (await fetch(`datos/carreras/${sk}.json`)).json());
+  return cacheCarreras[sk];
+}
+
+function partirDeCasoReal() {
+  const sc = $("#p-carrera"), sp = $("#p-piloto"), sv = $("#p-vuelta");
+  const temporadas = [...new Set(CFG.carreras.map((c) => c.temporada))].sort((a, b) => b - a);
+  sc.innerHTML = '<option value="">Elegí una carrera</option>' + temporadas.map((t) =>
+    `<optgroup label="${t}">` + CFG.carreras.filter((c) => c.temporada === t)
+      .map((c) => `<option value="${c.sk}">${c.nombre}</option>`).join("") + "</optgroup>").join("");
+  let datos = null;
+  sc.addEventListener("change", async () => {
+    sp.disabled = sv.disabled = true;
+    sp.innerHTML = sv.innerHTML = '<option value="">—</option>';
+    if (!sc.value) return;
+    datos = await datosCarrera(sc.value);
+    const meta = CFG.carreras.find((c) => c.sk === Number(sc.value));
+    sp.innerHTML = '<option value="">Elegí un piloto</option>' + meta.pilotos.map(([a, n]) => `<option value="${a}">${n}</option>`).join("");
+    sp.disabled = false;
+  });
+  sp.addEventListener("change", () => {
+    sv.disabled = true;
+    if (!sp.value || !datos) return;
+    const vueltas = datos.vueltas.filter((v) => v.piloto === sp.value);
+    sv.innerHTML = '<option value="">Elegí una vuelta</option>' + vueltas.map((v) =>
+      `<option value="${v.vuelta}">Vuelta ${v.vuelta}${v.para ? ` · paró (${v.objetivo})` : ""}</option>`).join("");
+    sv.disabled = false;
+  });
+  sv.addEventListener("change", () => {
+    if (!sv.value || !datos) return;
+    const v = datos.vueltas.find((x) => x.piloto === sp.value && x.vuelta === Number(sv.value));
+    const meta = CFG.carreras.find((c) => c.sk === Number(sc.value));
+    if (v) cargarEnFormulario(v, `${v.nombre} · ${meta.nombre} · vuelta ${v.vuelta}`, v.para ? `paró y montó ${v.objetivo}` : "no paró en esa vuelta");
+  });
 }
 
 async function ejemploAlAzar() {
@@ -392,14 +488,18 @@ async function proba() {
     fetch("datos/modelo_compuesto.json").then((r) => r.json()),
   ]);
   prepararFormulario();
+  partirDeCasoReal();
   const c = CFG.caso_inicial;
   cargarEnFormulario(c, c._desc, c._real);
 }
 
 // ------------------------------------------------------------------ inicio
+navegacion();
+aparecer();
+contadores();
+const pintarUmbral = rellenoUmbral();
 // Se espera a la tipografía para que Vega mida bien los rótulos de los ejes.
 await document.fonts.ready;
-navegacion();
 tallo();
 explora().catch((e) => { console.error(e); $("#resumen-vista").textContent = "No se pudieron cargar los datos de exploración."; });
 proba().catch((e) => { console.error(e); $("#r-veredicto").textContent = "No se pudo cargar el modelo."; });

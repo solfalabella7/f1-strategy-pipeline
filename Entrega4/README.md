@@ -46,6 +46,26 @@ py -3.12 -m venv .venv            # o: python -m uv venv --python 3.12 .venv
   - Se tiene control total del diseño editorial.
 - **El modelo de Python también queda guardado:** los `.joblib` están en [`artefactos/`](artefactos/) y se pueden cargar con `src/modelo.py`.
 
+## Diseño
+
+Concepto: **el centro de análisis de una escudería**. La copa de martini se recorre como un circuito.
+
+- **El tallo son tres sectores**, cada uno con su identidad:
+  - **S1 · The Data Garage:** carbono con retícula, telemetría del dataset y diagrama del pipeline.
+  - **S2 · Performance Analysis:** hoja clara con franja diagonal roja; es la única sección clara, para dar variedad.
+  - **S3 · Intelligence Lab:** grafito con plano técnico cian y flujo de decisión del modelo.
+- **La copa es la calle de boxes:** la franja «Boxes abiertos», luego *Race Control* (Explorá) y *Strategy Simulator* (Probá).
+- **La barra superior es un tablero de tiempos por sectores.** Cada sector se llena en rojo mientras se recorre y queda en lima al completarlo.
+- **Tipografía:**
+  - Titillium Web para títulos (display deportivo).
+  - Inter para el texto.
+  - JetBrains Mono para datos, etiquetas técnicas y ejes de los gráficos.
+- **Movimiento:**
+  - Secuencia de cinco luces de largada en la portada.
+  - Contadores que llegan al número real y aparición progresiva de bloques.
+  - Todo se desactiva con «reducir movimiento» del sistema operativo.
+- **Imágenes:** el monoplaza de la portada y el trazado de Marina Bay los aportó el grupo y se usan con fines académicos (crédito en el pie). Si se consigue una foto de mayor resolución para la portada, alcanza con reemplazar `app/img/portada-monoplaza.webp`.
+
 ## Estructura
 
 | Archivo | Qué hace |
@@ -74,7 +94,7 @@ py -3.12 -m venv .venv            # o: python -m uv venv --python 3.12 .venv
 | Métrica y justificación, piso, validación, comparación con media ± desvío, ajuste, test, análisis de errores, variables | Desplegable de 03 |
 | **04 Explorá:** panorama, todos los registros, ≥ 2 controles que filtran de verdad, detalle de cada registro con el resultado del modelo | Temporada, tipo de parada, umbral, Gran Premio y piloto; mapa piloto × vuelta con tooltip y ficha al hacer clic |
 | **05 Probá el modelo:** ingreso de valores, validación, rechazo de valores no vistos, mensajes, predicción y probabilidades | Formulario con rangos de 2023–2024 y reglas de coherencia; puntaje contra umbral y probabilidad de cada neumático |
-| Gráficos en Altair, colores coherentes, tallo legible sin interacción, copa interactiva | `src/graficos.py`; paleta validada (compuestos, contexto y violeta del modelo) |
+| Gráficos en Altair, colores coherentes, tallo legible sin interacción, copa interactiva | `src/graficos.py`; paleta validada con el validador de paletas: compuestos, contexto y cian del modelo |
 | Reproducible, script de construcción, README y dependencias | `build_app.py`, este archivo, `requirements-app.txt` |
 
 **Correcciones de la Entrega 3** (`CorreccionesEntrega3.md`): la tabla «Qué corregimos desde la Entrega 3», al principio del desplegable del modelo, responde cada punto. Incluye la curva precisión–recall con umbrales rotulados, umbrales más bajos en 2025, las falsas alarmas por distancia a la parada, la tolerancia de 1 a 3 vueltas y la importancia sin permutación (MDI) junto a la de permutación.

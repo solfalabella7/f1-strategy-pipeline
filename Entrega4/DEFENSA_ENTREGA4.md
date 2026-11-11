@@ -78,13 +78,15 @@ Si preguntan por el detalle, está en el desplegable del modelo, tabla «Qué co
 **Copa · Mapa de la carrera**
 - Datos: todas las vueltas de la carrera, con su puntaje.
 - Mapeo: x = vuelta (ordinal), y = piloto (ordenado por vueltas corridas).
-- Color: condición `puntaje >= umbral`. Si se cumple, escala secuencial violeta según el puntaje; si no, gris.
+- Color: condición `puntaje >= umbral`. Si se cumple, escala secuencial cian según el puntaje (más claro, más alto); si no, gris.
 - Segunda capa de círculos: paradas reales, coloreadas por el compuesto montado, con la misma paleta que en todo el sitio.
 
 **Colores (iguales en toda la app):**
-- Compuesto: SOFT rojo, MEDIUM ámbar, HARD pizarra (el blanco de Pirelli no se ve sobre fondo claro), LLUVIA azul.
-- Contexto: seco pizarra, safety car ámbar, lluvia azul.
-- Modelo: violeta. Siempre que aparece violeta es el modelo.
+- Compuesto: los colores de Pirelli. SOFT rojo, MEDIUM amarillo, HARD blanco y LLUVIA azul (en la sección clara, HARD pasa a pizarra porque el blanco no se ve).
+- Contexto: seco blanco, safety car ámbar, lluvia azul.
+- Modelo: **cian**, el color de la telemetría. Siempre que aparece cian es el modelo.
+- Interfaz: rojo racing para la marca y los encabezados; lima para indicadores (la torre de la portada, sectores completados). Nunca se usan para datos del modelo.
+- **Por qué cian y no lima:** el lima se confundía con el amarillo del MEDIUM para daltonismo (ΔE 3,7 en el validador de paletas), y en el mapa de carrera conviven los dos. El cian pasa contra los cuatro compuestos.
 
 ### Una decisión de diseño que cambiamos
 
