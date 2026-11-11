@@ -1,0 +1,14 @@
+# Entorno de análisis y de la aplicación de la Entrega 4 (build_app.py).
+# No reemplaza a requirements.txt, que es el de la imagen de Airflow (Astro).
+# Versiones fijadas: son las de Colab con las que se corrió Entrega3_F1_v6.ipynb;
+# con ellas build_app.py reproduce exactamente los números del notebook.
+# Python 3.10 a 3.12 (scikit-learn 1.6.1 no tiene ruedas para 3.13+).
+scikit-learn==1.6.1
+pandas==2.2.2
+numpy==2.0.2
+joblib>=1.4
+altair==5.5.0
+jinja2>=3.1
+pytest>=8
+# Opcional, sólo para las pruebas de navegador: playwright
+# Node.js (>= 18) se usa para verificar que el modelo del navegador coincide con scikit-learn.

@@ -1,5 +1,7 @@
 # Pendientes para la Entrega 4
 
+> **Nota (Entrega 4):** el «punto de partida» de abajo describe la primera versión del modelado (`Entrega3_Modelado.ipynb`). Lo que se entregó y usa la app es la **v6** (`Entrega3_F1_v6.ipynb`): dos random forest, parada y compuesto, umbral 0,475. Ver [`README.md`](README.md).
+
 Lo que sale de la Entrega 3 y hay que tener presente. El modelo elegido en la Entrega 3 es el que usa la app, según el instructivo.
 
 ## Punto de partida
