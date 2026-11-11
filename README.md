@@ -136,6 +136,28 @@ El módulo [`src/silver_pipeline.py`](src/silver_pipeline.py) es completamente d
 
 ---
 
+## 📊 Entrega 4 · Aplicación «Ventana de boxes»
+
+Página web estática con la historia del proyecto (datos → hallazgo → modelo), un explorador de las 64 carreras y un formulario para probar el modelo en el navegador. Usa la capa Silver de este pipeline y los dos random forest elegidos en la Entrega 3 (v6). Detalle completo, decisiones y verificación en [`Entrega4/README.md`](Entrega4/README.md).
+
+```bash
+# Entorno de análisis (Python 3.10–3.12; versiones fijadas para reproducir la v6)
+python -m venv .venv && .venv/Scripts/python -m pip install -r requirements-app.txt
+
+# Regenerar la app después de correr el pipeline (≈ 2 min)
+.venv/Scripts/python build_app.py            # --seleccion recalcula también la selección de modelos
+
+# Verla localmente
+.venv/Scripts/python -m http.server 8765 --directory Entrega4/sitio   # http://127.0.0.1:8765
+
+# Pruebas (pipeline + app)
+.venv/Scripts/python -m pytest tests/test_app.py tests/test_silver_pipeline.py   # tests/dags corre dentro de Astro
+```
+
+Se publica en GitHub Pages con [`.github/workflows/pages.yml`](.github/workflows/pages.yml) (Settings → Pages → Source: GitHub Actions).
+
+---
+
 ## 🧪 Pruebas Automatizadas
 
 Para validar las transformaciones, la resolución de stints/paradas y la integridad del pipeline:
@@ -169,10 +191,18 @@ Para validar las transformaciones, la resolución de stints/paradas y la integri
 ├── docs/
 │   └── SILVER.md                # Especificación y contrato de datos de la capa Silver
 ├── src/
-│   └── silver_pipeline.py       # Motor determinístico de enriquecimiento, joins As-Of y stints/pits
+│   ├── silver_pipeline.py       # Motor determinístico de enriquecimiento, joins As-Of y stints/pits
+│   ├── modelo.py                # Modelo de la Entrega 3 (v6) como módulo: HistoriaCausal, pipeline, folds
+│   ├── analisis_app.py          # Métricas, errores e hipótesis que muestra la app
+│   ├── seleccion.py             # Selección de modelos de la v6 (familias, grillas, ablación, importancia)
+│   ├── graficos.py              # Gráficos de la app en Altair
+│   └── exportar_modelo.py       # Exporta los random forest a JSON y verifica la paridad con Node.js
 ├── tests/
 │   ├── dags/                    # Pruebas de integridad de DAGs de Airflow
 │   └── test_silver_pipeline.py  # Pruebas unitarias de uniones, resolución de pits y validaciones
+├── Entrega4/                    # App de la Entrega 4: plantilla (app/), sitio generado (sitio/) y modelos (artefactos/)
+├── build_app.py                 # Construye la app desde la capa Silver y el modelo de la Entrega 3
+├── requirements-app.txt         # Dependencias del análisis y de la app (distintas de las de Airflow)
 ├── verify_quality_criteria.py   # Script de auditoría de los 7 criterios de calidad
 ├── airflow_settings.yaml        # Conexiones locales de Airflow (OpenF1 HTTP Hook)
 ├── docker-compose.yml           # Definición del servicio PostgreSQL 16

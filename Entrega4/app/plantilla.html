@@ -1,0 +1,622 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Ventana de boxes · F1 Strategy Pipeline</title>
+<meta name="description" content="Proyecto integrador de Ciencia de Datos (UTN FRM 2026): qué se puede anticipar de las paradas en boxes de la Fórmula 1 con lo que se sabe al empezar cada vuelta.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Titillium+Web:ital,wght@0,400;0,600;0,700;0,900;1,700;1,900&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="estilos.css">
+<link rel="preload" as="image" href="img/portada-monoplaza.webp">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='6' fill='%23121417'/><path d='M6 22 L14 10 H26 L18 22 Z' fill='%23ff1e2d'/></svg>">
+<script src="https://cdn.jsdelivr.net/npm/vega@5.30.0/build/vega.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/vega-lite@5.20.1/build/vega-lite.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/vega-embed@6.26.0/build/vega-embed.min.js"></script>
+</head>
+<body>
+<a class="saltar" href="#datos">Saltar al contenido</a>
+
+<!-- Barra superior: la navegación es un tablero de tiempos por sectores.
+     El tallo son tres sectores (S1–S3); la copa es la calle de boxes (PIT). -->
+<nav class="barra" aria-label="Secciones">
+  <a class="marca" href="#inicio" aria-label="Ventana de boxes, inicio"><span class="marca-logo" aria-hidden="true"></span><span class="marca-texto">VENTANA<b>DE BOXES</b></span></a>
+  <ol class="sectores">
+    <li><a href="#datos" data-sector="1"><span class="s-id">S1</span><span class="s-nombre">Los datos</span><span class="s-barra"><i></i></span></a></li>
+    <li><a href="#hallazgo" data-sector="2"><span class="s-id">S2</span><span class="s-nombre">Hallazgo</span><span class="s-barra"><i></i></span></a></li>
+    <li><a href="#modelo" data-sector="3"><span class="s-id">S3</span><span class="s-nombre">El modelo</span><span class="s-barra"><i></i></span></a></li>
+    <li class="pit"><a href="#explora" data-sector="4"><span class="s-id">PIT</span><span class="s-nombre">Explorá</span><span class="s-barra"><i></i></span></a></li>
+    <li class="pit"><a href="#proba" data-sector="5"><span class="s-id">SIM</span><span class="s-nombre">Probá</span><span class="s-barra"><i></i></span></a></li>
+  </ol>
+</nav>
+
+<!-- ================================================================== PORTADA · RACE OVERVIEW -->
+<header class="portada" id="inicio">
+  <div class="portada-foto" aria-hidden="true"><img src="img/portada-monoplaza.webp" alt="" width="1200" height="630" fetchpriority="high"></div>
+  <svg class="portada-velocidad" viewBox="0 0 1200 600" preserveAspectRatio="none" aria-hidden="true">
+    <g stroke="currentColor" stroke-linecap="round">
+      <line x1="0" y1="140" x2="520" y2="140" stroke-width="1.5"/><line x1="60" y1="210" x2="420" y2="210" stroke-width="1"/>
+      <line x1="0" y1="430" x2="460" y2="430" stroke-width="1.5"/><line x1="120" y1="490" x2="380" y2="490" stroke-width="1"/>
+    </g>
+  </svg>
+  <div class="portada-interior">
+    <div class="portada-meta">
+      <span class="etiqueta-tv"><b>RACE OVERVIEW</b> Proyecto integrador · Ciencia de Datos</span>
+      <span class="mono">UTN FRM · 2026 · GRUPO 5K10-10</span>
+    </div>
+    <div class="luces" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i></div>
+    <h1><span class="h1-chico">F1 Strategy Pipeline</span>Ventana<br>de boxes</h1>
+    <p class="pregunta"><span class="mono">LA PREGUNTA</span>¿Se puede anticipar, con lo que se sabe al empezar cada vuelta, si un piloto de Fórmula 1 va a entrar a boxes y qué neumático va a montar?</p>
+    <p class="idea">El modelo detecta cuándo se abre la ventana de parada, pero no ve venir las paradas que provocan el safety car y la lluvia.</p>
+
+    <ol class="torre" aria-label="Tres números que sostienen la idea">
+      <li class="torre-fila">
+        <span class="torre-pos">P1</span>
+        <span class="torre-num" data-contar="{{ T.pct_seco }}">{{ T.pct_seco }}</span>
+        <span class="torre-texto">de las paradas <strong>en seco y sin safety car</strong> tuvo la alarma encendida en esa vuelta<small>{{ T.seco_a }} de {{ T.seco_n }} paradas de 2025, una temporada que el modelo no vio</small></span>
+      </li>
+      <li class="torre-fila torre-debil">
+        <span class="torre-pos">P2</span>
+        <span class="torre-num" data-contar="{{ T.pct_reactivas }}">{{ T.pct_reactivas }}</span>
+        <span class="torre-texto">de las paradas <strong>con safety car o a neumáticos de lluvia</strong> tuvo la alarma encendida<small>{{ T.reactivas_a }} de {{ T.reactivas_n }} paradas de 2025</small></span>
+      </li>
+      <li class="torre-fila">
+        <span class="torre-pos">P3</span>
+        <span class="torre-num" data-contar="{{ T.pct_episodios }}">{{ T.pct_episodios }}</span>
+        <span class="torre-texto">de las rachas de alarma <strong>terminan en una parada real</strong>, en la racha o hasta 3 vueltas después<small>{{ T.episodios_ok }} de {{ T.episodios }} rachas · duran {{ T.episodio_mediana }} vueltas (mediana)</small></span>
+      </li>
+    </ol>
+    <div class="portada-pie">
+      <a class="boton-largada" href="#datos"><span>LIGHTS OUT</span> Empezar el recorrido</a>
+      <p class="portada-nota">Cuando hay parada, el modelo también acierta el neumático en el <strong>{{ T.acc_comp }}</strong> de los casos (montar siempre HARD acierta el {{ T.acc_piso }}).</p>
+    </div>
+  </div>
+  <div class="cinta" aria-label="Datos del proyecto">
+    <span><b>{{ T.carreras_validas }}</b> carreras</span><span><b>{{ T.vueltas_validas }}</b> vueltas</span><span><b>{{ T.paradas_reales }}</b> paradas</span><span><b>2023–2025</b> temporadas</span><span><b>OpenF1</b> API pública</span><span><b>2</b> random forest</span>
+  </div>
+</header>
+
+<!-- El recorrido: la copa de martini como un circuito. El tallo es la vuelta guiada; la copa, los boxes. -->
+<section class="recorrido" aria-label="Cómo se recorre la aplicación">
+  <svg class="recorrido-pista" viewBox="0 0 1000 120" preserveAspectRatio="none" aria-hidden="true">
+    <path d="M10 60 H560 C600 60 610 20 650 20 H990" fill="none" stroke="currentColor" stroke-width="3" stroke-dasharray="2 10" stroke-linecap="round"/>
+  </svg>
+  <ol class="recorrido-pasos">
+    <li><span class="mono">S1</span> Los datos</li>
+    <li><span class="mono">S2</span> Lo que encontramos</li>
+    <li><span class="mono">S3</span> El modelo</li>
+    <li class="pit"><span class="mono">PIT LANE</span> Tu turno: explorá y probá</li>
+  </ol>
+  <p class="recorrido-texto"><b>Vuelta de formación.</b> Primero te guiamos por tres sectores, cada uno con un hallazgo. <b>Después se abren los boxes:</b> manejás vos los datos y el modelo, ya sabiendo qué mirar.</p>
+</section>
+
+<main>
+
+<!-- 01 · LOS DATOS -->
+<section class="seccion garage" id="datos" data-numero="01">
+  <div class="seccion-cabeza">
+    <p class="seccion-numero"><span class="etiqueta-tv"><b>S1</b> THE DATA GARAGE</span> Los datos</p>
+    <h2>Solo 3 de cada 100 vueltas terminan en boxes, y las grandes tandas de paradas llegan con safety car o lluvia</h2>
+    <p class="bajada">{{ T.paradas_reales }} paradas en {{ T.vueltas_validas }} vueltas de {{ T.carreras_validas }} carreras ({{ T.pct_paradas }}). Cada fila es una carrera; cada círculo, una vuelta en la que paró al menos un piloto, y su área indica cuántos.</p>
+  </div>
+  <dl class="telemetria" aria-label="El dataset en números">
+    <div><dt>Vueltas con etiqueta</dt><dd data-contar="{{ T.vueltas_validas }}">{{ T.vueltas_validas }}</dd></div>
+    <div><dt>Paradas en boxes</dt><dd data-contar="{{ T.paradas_reales }}">{{ T.paradas_reales }}</dd></div>
+    <div class="destacado"><dt>Vueltas que terminan en boxes</dt><dd>{{ T.pct_paradas }}</dd></div>
+    <div><dt>Carreras · 2023–2025</dt><dd data-contar="{{ T.carreras_validas }}">{{ T.carreras_validas }}</dd></div>
+  </dl>
+  <div class="pantalla" data-etiqueta="TELEMETRÍA · PARADAS POR VUELTA Y CARRERA">
+    <figure class="grafico grafico-alto" id="g-datos" aria-label="Paradas por vuelta en cada carrera"></figure>
+  </div>
+  <div class="que-mirar">
+    <h3>Qué mirar</h3>
+    <p>La mayoría de los círculos son chicos y grises: paradas de uno o dos pilotos, planificadas, en seco. Los círculos grandes —diez o más autos que entran juntos— son ámbar (safety car en pista) o azules (cambio a neumáticos de lluvia). Esa diferencia es la que va a explicar dónde acierta y dónde falla el modelo.</p>
+    <p>Que las paradas sean tan pocas obliga a no medir con <em>accuracy</em>: un modelo que nunca dice «parar» acertaría el {{ T.test_nunca_acc }} de las vueltas de 2025 sin servir para nada.</p>
+  </div>
+  <ol class="pipeline" aria-label="Del dato crudo al modelo">
+    <li><span class="mono">FUENTE</span><b>OpenF1</b><small>API pública v1</small></li>
+    <li><span class="mono">BRONCE</span><b>JSON</b><small>respuestas tal como llegan</small></li>
+    <li><span class="mono">SILVER</span><b>{{ T.filas_silver }}</b><small>vueltas · {{ T.carreras_silver }} carreras</small></li>
+    <li><span class="mono">CON ETIQUETA</span><b>{{ T.vueltas_validas }}</b><small>vueltas · {{ T.carreras_validas }} carreras</small></li>
+    <li><span class="mono">CON HISTORIA</span><b>{{ T.poblacion }}</b><small>vueltas que se predicen</small></li>
+    <li class="split"><span class="mono">TRAIN · TEST</span><b>{{ T.train_v }} · {{ T.test_v }}</b><small>2023–24 · 2025</small></li>
+  </ol>
+
+  <details class="como">
+    <summary><span>Cómo lo sabemos</span> Fuente, filtros, cantidades y columnas descartadas</summary>
+    <div class="como-cuerpo">
+      <div class="dos-col">
+        <div>
+          <h4>Fuente y obtención</h4>
+          <p>API pública <a href="https://openf1.org/" target="_blank" rel="noopener">OpenF1</a> (v1): vueltas, stints, paradas, clima, posiciones, intervalos y dirección de carrera. Un DAG de Apache Airflow (<code>dags/f1_strategy_pipeline.py</code>) guarda las respuestas tal como llegan en la capa Bronce y <code>src/silver_pipeline.py</code> las une sin mirar el futuro (uniones <em>as-of</em> a la última medición anterior a cada vuelta) en <code>f1_silver_dataset.csv</code>: {{ T.filas_silver }} filas × {{ T.cols_silver }} columnas, {{ T.carreras_silver }} carreras.</p>
+          <p>Las paradas y el neumático montado salen de emparejar cada parada con el stint siguiente (<code>resolve_driver_pits</code>, mismo código del pipeline). Origen en esta construcción: {{ T.origen_pits }}.</p>
+        </div>
+        <div>
+          <h4>Fecha y unidad</h4>
+          <p>Descarga del 9 de septiembre de 2026. Carreras desde el {{ T.fecha_desde }} hasta el {{ T.fecha_hasta }} (temporadas 2023, 2024 y 2025 completas).</p>
+          <p><strong>Una fila es una vuelta de un piloto en una carrera.</strong> Clave: <code>(session_key, driver_number, lap_number)</code>, sin duplicados. Dos objetivos: <code>pit_stop</code> (¿para en esta vuelta?) y, si para, el neumático que monta (SOFT, MEDIUM, HARD o LLUVIA = intermedio + mojado).</p>
+        </div>
+      </div>
+
+      <h4>Filtros, en orden</h4>
+      <div class="tabla-envoltura">
+      <table class="tabla">
+        <thead><tr><th>Paso</th><th>Qué se hace</th><th class="n">Vueltas</th><th class="n">Paradas</th><th class="n">Carreras</th><th>Por qué</th></tr></thead>
+        <tbody>
+          <tr><td>0</td><td>Capa Silver del pipeline</td><td class="n">{{ T.filas_silver }}</td><td class="n">—</td><td class="n">{{ T.carreras_silver }}</td><td>Todas las vueltas descargadas.</td></tr>
+          <tr><td>1</td><td>Se descartan las vueltas sin dato de paradas ({{ T.vueltas_sin_etiqueta }} vueltas de {{ T.carreras_sin_etiqueta }} carreras de 2023)</td><td class="n">{{ T.vueltas_validas }}</td><td class="n">{{ T.paradas_reales }}</td><td class="n">{{ T.carreras_validas }}</td><td>OpenF1 no publica paradas de esas carreras: tratarlas como «no paró» sería inventar la respuesta (devolución de la Entrega 2).</td></tr>
+          <tr><td>2</td><td>Corrección de Bélgica 2025 ({{ T.pilotos_corregidos }} pilotos)</td><td class="n">{{ T.vueltas_validas }}</td><td class="n">{{ T.paradas_reales }}</td><td class="n">{{ T.carreras_validas }}</td><td>OpenF1 da un stint de una vuelta y otro compuesto desde la vuelta 2 sin parada entre ambos, algo imposible. La regla mira solo la historia de stints y paradas.</td></tr>
+          <tr><td>3</td><td>Se quedan las vueltas con una vuelta previa del piloto con neumático y edad conocidos (−{{ T.sin_historia }} vueltas, −{{ T.sin_historia_paradas }} paradas)</td><td class="n">{{ T.poblacion }}</td><td class="n">{{ T.poblacion_paradas }}</td><td class="n">{{ T.carreras_validas }}</td><td>Todo lo que usa el modelo sale de la vuelta anterior; la primera vuelta de cada piloto no tiene historia.</td></tr>
+          <tr><td>4a</td><td>Entrenamiento y validación: 2023–2024</td><td class="n">{{ T.train_v }}</td><td class="n">{{ T.train_p }}</td><td class="n">{{ T.train_c }}</td><td rowspan="2">Se entrena con temporadas pasadas y se evalúa en una nueva, como se usaría en la realidad.</td></tr>
+          <tr><td>4b</td><td>Test: 2025, mirado una sola vez</td><td class="n">{{ T.test_v }}</td><td class="n">{{ T.test_p }}</td><td class="n">{{ T.test_c }}</td></tr>
+        </tbody>
+      </table>
+      </div>
+      <p class="nota">Neumático montado en las {{ T.poblacion_paradas }} paradas: SOFT {{ T.clases.SOFT }} ({{ T.clases_pct.SOFT }}), MEDIUM {{ T.clases.MEDIUM }} ({{ T.clases_pct.MEDIUM }}), HARD {{ T.clases.HARD }} ({{ T.clases_pct.HARD }}), LLUVIA {{ T.clases.LLUVIA }} ({{ T.clases_pct.LLUVIA }}).</p>
+
+      <h4>Columnas descartadas por fuga de información</h4>
+      <ul class="lista">
+        <li><code>new_compound</code>: es la respuesta.</li>
+        <li><code>current_compound</code>, <code>tyre_age</code> y <code>stint_number</code> de la vuelta que se decide: en la vuelta de la parada ya muestran a veces el neumático nuevo (321 paradas con edad 0 en la Entrega 2). Se usan los de la <strong>vuelta anterior</strong>.</li>
+        <li><code>pit_duration</code>, <code>lane_duration</code>, <code>stop_duration</code>, <code>lap_duration</code> y los tiempos de sector: se conocen al terminar la vuelta o la parada.</li>
+        <li><code>session_max_lap_observed</code>: es el largo final de la carrera; el momento de carrera se mide con el número de vuelta.</li>
+        <li>Por la devolución de la Entrega 2 quedan fuera del modelo <code>safety_car_active</code>, <code>yellow_flag_*</code>, <code>i1_speed</code>, <code>st_speed</code>, <code>interval*</code> y <code>gap_to_leader</code>. El safety car se usa solo para leer los errores.</li>
+      </ul>
+      <h4>Cómo se construyó el gráfico</h4>
+      <p>Datos: las {{ T.paradas_reales }} paradas, agrupadas por carrera y vuelta (una marca por vuelta con paradas). Marca: círculo; posición horizontal = número de vuelta; fila = carrera, en orden de fecha; área = pilotos que paran en esa vuelta; color = contexto (si alguna de esas paradas fue con safety car, ámbar; si no y alguien montó neumáticos de lluvia, azul). La barra gris de cada fila va de la vuelta 1 a la última registrada.</p>
+    </div>
+  </details>
+</section>
+
+<!-- 02 · LO QUE ENCONTRAMOS -->
+<section class="seccion analisis" id="hallazgo" data-numero="02">
+  <div class="seccion-cabeza">
+    <p class="seccion-numero"><span class="etiqueta-tv"><b>S2</b> PERFORMANCE ANALYSIS</span> Lo que encontramos</p>
+    <h2>Con safety car los equipos cambian de plan: en seco, el HARD baja del {{ T.h4_sin_hard }} al {{ T.h4_con_hard }} de las paradas</h2>
+    <p class="bajada">Neumático montado en las paradas a compuestos de seco, según haya o no safety car en pista ({{ T.h4_n_con }} paradas con safety car y {{ T.h4_n_sin }} sin).</p>
+  </div>
+  <div class="pantalla pantalla-clara" data-etiqueta="COMPUESTO MONTADO · PARADAS EN SECO">
+    <figure class="grafico" id="g-hallazgo" aria-label="Porcentaje de cada compuesto con y sin safety car"></figure>
+  </div>
+  <div class="que-mirar">
+    <h3>Qué mirar</h3>
+    <p>La distancia entre el círculo y el rombo de cada fila. Con safety car la parada cuesta menos tiempo y se aprovecha para poner un neumático para menos vueltas: crece el SOFT ({{ T.h4_sin_soft }} → {{ T.h4_con_soft }}) y el MEDIUM ({{ T.h4_sin_med }} → {{ T.h4_con_med }}), y cae el HARD. Son paradas que responden a algo que pasa en la carrera, no a un plan escrito antes de largar.</p>
+    <p>Es una asociación, no una causa. Y como el safety car quedó fuera del modelo (devolución de la Entrega 2), es justamente la situación en la que el modelo no tiene con qué anticipar.</p>
+  </div>
+
+  <details class="como">
+    <summary><span>Cómo lo sabemos</span> Hipótesis, números, construcción del gráfico y transformaciones</summary>
+    <div class="como-cuerpo">
+      <p class="nota">Cada hipótesis se decidió con un número contra los cortes de la cátedra. Separación estandarizada: rojo &lt; 0,2 · amarillo 0,2–0,8 · verde &gt; 0,8. Brecha de proporciones: rojo &lt; 0,05 · amarillo 0,05–0,15 · verde &gt; 0,15.</p>
+      <div class="hipotesis">
+        <article class="hip hip-si">
+          <p class="hip-estado">Se sostuvo · verde</p>
+          <h4>H4 · Con safety car se monta un compuesto más blando</h4>
+          <p>Brecha del HARD entre paradas sin y con safety car: <strong>{{ T.h4_brecha_todas }}</strong> sobre todas las paradas ({{ T.h4_hard_sin_todas }} contra {{ T.h4_hard_con_todas }}). Como con safety car también hay más lluvia ({{ T.h4_lluvia_con }} de las paradas monta intermedios o mojado, contra {{ T.h4_lluvia_sin }} sin safety car), en la Entrega 3 se repitió <strong>solo con paradas a seco: brecha {{ T.h4_brecha }}</strong>, sigue verde. En la Entrega 2 la brecha también siguió verde quitando las últimas 15 vueltas (0,258).</p>
+          <p class="hip-pie">Las {{ T.h4_sc_total }} paradas con safety car vienen de {{ T.h4_sc_carreras }} carreras y muchas son simultáneas: no son decisiones independientes.</p>
+        </article>
+        <article class="hip hip-no">
+          <p class="hip-estado">No se sostuvo · rojo</p>
+          <h4>H2 · Se para más desde posiciones retrasadas</h4>
+          <p>Separación estandarizada de la posición entre vueltas con y sin parada: <strong>{{ T.h2_sep }}</strong>. Las distribuciones se superponen casi por completo y, si algo, los que paran vienen un poco <em>más adelante</em>: posición media {{ T.h2_media_para }} contra {{ T.h2_media_sigue }}.</p>
+          <p class="hip-pie">La posición quedó en el modelo como variable a prueba; en la ablación, sacarla no cambia el resultado más allá del ruido.</p>
+        </article>
+      </div>
+      <h4>La edad del neumático marca la ventana, no la vuelta (H1 corregida)</h4>
+      <p>Las vueltas con parada empiezan con neumáticos más gastados —mediana {{ T.h1_med_para }} vueltas contra {{ T.h1_med_sigue }}; rango intercuartil {{ T.h1_iqr_para }} contra {{ T.h1_iqr_sigue }}—, pero las dos distribuciones se superponen mucho (separación 0,409, amarillo, en la Entrega 2). Es el histograma que pidió el docente en lugar del boxplot, con la edad <strong>al empezar la vuelta</strong> y cada grupo normalizado por separado.</p>
+      <figure class="grafico grafico-chico" id="g-h1" aria-label="Histograma de la edad del neumático"></figure>
+      <h4>Construcción del gráfico principal</h4>
+      <ul class="lista">
+        <li><strong>Datos:</strong> las {{ T.paradas_reales }} paradas; se excluyen las que montan intermedio o mojado y quedan {{ T.h4_n_con }} con safety car y {{ T.h4_n_sin }} sin.</li>
+        <li><strong>Transformación:</strong> para cada situación, el porcentaje de paradas que monta cada compuesto (tabla cruzada normalizada por fila, así cada grupo suma 100 %).</li>
+        <li><strong>Marcas y escalas:</strong> un punto por compuesto y situación sobre un eje común de 0 a 60 %; la línea gris une los dos valores de cada compuesto para leer la diferencia. Color y forma distinguen la situación.</li>
+        <li><strong>Safety car:</strong> <code>safety_car_active</code> sale de los mensajes de dirección de carrera anteriores al inicio de la vuelta (unión <em>as-of</em> del pipeline).</li>
+      </ul>
+    </div>
+  </details>
+</section>
+
+<!-- 03 · EL MODELO -->
+<section class="seccion lab" id="modelo" data-numero="03">
+  <div class="seccion-cabeza">
+    <p class="seccion-numero"><span class="etiqueta-tv"><b>S3</b> INTELLIGENCE LAB</span> El modelo</p>
+    <h2>El modelo anticipa 2 de cada 3 paradas en seco, pero casi ninguna de las que provocan el safety car o la lluvia</h2>
+    <p class="bajada">Paradas reales de 2025 con la alarma encendida en esa misma vuelta (puntaje del modelo ≥ {{ T.umbral }}), según el contexto de la parada.</p>
+  </div>
+  <div class="pantalla" data-etiqueta="TEST 2025 · PARADAS CON ALARMA EN ESA VUELTA">
+    <figure class="grafico" id="g-modelo" aria-label="Porcentaje de paradas anticipadas por contexto"></figure>
+  </div>
+  <div class="que-mirar">
+    <h3>Qué mirar</h3>
+    <p>Las tres barras usan el mismo modelo, el mismo umbral y la misma temporada. Cuando la parada es parte del plan —un neumático que se gasta— el modelo la ve venir: la alarma se prende varias vueltas antes y se apaga al parar. Cuando la parada es una reacción a algo que pasa en la pista, llega sin aviso: con safety car anticipa {{ T.sc_a }} de {{ T.sc_n }} y a neumáticos de lluvia {{ T.ll_a }} de {{ T.ll_n }}.</p>
+    <p>El precio de vigilar la ventana son las falsas alarmas: de las {{ T.test_alarmas }} vueltas con alarma en 2025, solo el {{ T.test_prec }} es una parada en esa vuelta exacta. Sirve como aviso de «se abrió la ventana», no como orden de «entrá ahora».</p>
+  </div>
+  <ol class="flujo" aria-label="Cómo decide el modelo en cada vuelta">
+    <li><span class="mono">ENTRADA</span><b>La vuelta que empieza</b><small>piloto, carrera, número de vuelta, circuito y equipo</small></li>
+    <li><span class="mono">HISTORIA CAUSAL</span><b>18 variables</b><small>solo de vueltas anteriores: neumático, paradas, pelotón y clima</small></li>
+    <li class="cian"><span class="mono">BOSQUE 1 · 150 ÁRBOLES</span><b>Puntaje de parada</b><small>¿supera {{ T.umbral }}? → alarma</small></li>
+    <li class="cian"><span class="mono">BOSQUE 2 · 150 ÁRBOLES</span><b>Neumático</b><small>probabilidad de SOFT, MEDIUM, HARD o LLUVIA</small></li>
+  </ol>
+  <div class="mini-kpis">
+    <div><p class="mk-n">{{ T.test_f1 }}</p><p>F1 de la clase «para» en 2025 · «siempre parar» da {{ T.test_siempre }}</p></div>
+    <div><p class="mk-n">{{ T.comp_f1 }}</p><p>F1 macro del neumático en las paradas reales · «siempre HARD» da {{ T.comp_piso_f1 }}</p></div>
+    <div><p class="mk-n">{{ T.sis_pct }}</p><p>de las paradas de 2025 con las dos decisiones bien: parar en esa vuelta y el neumático ({{ T.sis_ambas }} de {{ T.sis_paradas }})</p></div>
+  </div>
+
+  <details class="como">
+    <summary><span>Cómo lo sabemos</span> Correcciones de la Entrega 3, métrica, piso, validación, comparación, ajuste, test, errores y variables</summary>
+    <div class="como-cuerpo">
+      <h4>Qué corregimos desde la Entrega 3</h4>
+      <p>El modelo es el mismo que se eligió en la Entrega 3 (dos random forest, umbral {{ T.umbral }}). Lo que cambió es cómo se leen sus errores, que es lo que pidió la devolución:</p>
+      <div class="tabla-envoltura">
+      <table class="tabla">
+        <thead><tr><th>Lo que se marcó</th><th>Qué hicimos</th></tr></thead>
+        <tbody>
+          <tr><td>Curva con recall en X, precisión en Y y los umbrales adentro</td><td>Curva precisión–recall fuera de pedazo, con cada umbral rotulado (más abajo, en «Ajuste»).</td></tr>
+          <tr><td>Bajar el umbral para mejorar el recall y ver cuántas paradas se recuperan</td><td>Regla nueva, fijada antes de mirar 2025: máximo F2 fuera de pedazo (premia el recall) entre umbrales ≤ 0,475. {% if T.f2.coincide %}Elige {{ T.f2.umbral }}, el mismo umbral.{% else %}En este entorno (el de la v6) elige <strong>{{ T.f2.umbral }}</strong> (F2 {{ T.f2.f2_nuevo }} contra {{ T.f2.f2_base }} de {{ T.umbral }}); la corrida guardada de la v7, con scikit-learn 1.9.1, elegía 0,475. La curva es tan plana que la versión de la librería cambia el máximo. La app mantiene {{ T.umbral }}, el umbral con el que se evaluó el test, y deja probar otros con el control de umbral de «Explorá».{% endif %} En la tabla de 2025 de abajo: con 0,40 se anticipan {{ T.corr.extra_vp }} paradas más a cambio de {{ T.corr.extra_fp }} falsas alarmas más.</td></tr>
+          <tr><td>Rehacer las matrices de confusión</td><td>Conteos y normalizaciones por fila y por columna (tabla de test y matriz del neumático).</td></tr>
+          <tr><td>Qué tan lejos están los falsos positivos de la parada real; gráfico de las falsas alarmas</td><td>Gráfico de falsas alarmas por distancia a la próxima parada: el {{ T.corr.cercanas_pct }} llega hasta 10 vueltas antes (mediana {{ T.corr.fp_mediana }} vueltas).</td></tr>
+          <tr><td>Tolerancia de 1 a 3 vueltas</td><td>Paradas con alarma en esa vuelta o en las k anteriores: {% for c in T.corr.cobertura %}k = {{ c.k }}: {{ c.pct }}{% if not loop.last %} · {% endif %}{% endfor %}. Lo que se escapa no se escapa por poco.</td></tr>
+          <tr><td>Falsos positivos entendibles y especiales; qué es fácil y qué es difícil</td><td>Es el eje de esta sección: el gráfico principal separa paradas planificadas (fáciles) de reactivas (difíciles); abajo, el perfil de las omitidas, la racha de {{ T.ejemplo.piloto }} y Bélgica 2025.</td></tr>
+          <tr><td>Importancia del random forest sin permutación: qué variables usa e ignora</td><td>Importancia por impureza (MDI) de cada bosque al lado de la de permutación, al final de esta sección.</td></tr>
+        </tbody>
+      </table>
+      </div>
+
+      <h4>Qué predice y con qué</h4>
+      <p>Dos pasos en cada vuelta: <strong>(1) ¿para en esta vuelta?</strong> y, si la respuesta es sí, <strong>(2) ¿qué neumático monta?</strong> Ambos son un <em>random forest</em> (150 árboles, profundidad 12, hoja mínima 10, <code>class_weight="balanced_subsample"</code>, semilla 42) dentro de un <code>Pipeline</code> cuyo primer paso, <code>HistoriaCausal</code>, arma 18 variables leyendo solo vueltas anteriores de la misma carrera:</p>
+      <div class="tabla-envoltura">
+      <table class="tabla">
+        <thead><tr><th>Variable</th><th>Qué es</th><th>De dónde sale</th></tr></thead>
+        <tbody>
+          <tr><td><code>tyre_age_prev</code>, <code>compound_prev</code>, <code>position_prev</code></td><td>Edad y tipo del neumático, posición</td><td>Última vuelta anterior del piloto</td></tr>
+          <tr><td><code>stops_before</code></td><td>Paradas ya hechas</td><td>Paradas en vueltas anteriores</td></tr>
+          <tr><td><code>used_soft/medium/hard</code></td><td>Si ya usó ese compuesto</td><td>Acumulado hasta la vuelta anterior</td></tr>
+          <tr><td><code>field_*_prev</code></td><td>Proporción del pelotón en cada compuesto</td><td>Vuelta t−1 de todos los pilotos</td></tr>
+          <tr><td><code>track/air_temperature_prev</code>, <code>humidity_prev</code>, <code>rainfall_prev</code></td><td>Clima</td><td>Última vuelta anterior</td></tr>
+          <tr><td><code>lap_number</code>, <code>circuit_short_name</code>, <code>team_name</code></td><td>Momento, circuito y equipo</td><td>Se conocen al empezar la vuelta</td></tr>
+        </tbody>
+      </table>
+      </div>
+      <p class="nota">Prueba de fuga (Entrega 3): para 300 vueltas al azar se borró del registro todo lo ocurrido desde esa vuelta en adelante y ninguna variable cambió (0 de 300).</p>
+
+      <div class="dos-col">
+        <div>
+          <h4>Métrica elegida</h4>
+          <p><strong>Parada: F1 de la clase «para».</strong> Solo el {{ T.pct_paradas }} de las vueltas tiene parada; combina precisión (no parar de más) y recall (no perderse paradas). <strong>Neumático: F1 macro</strong>, para que SOFT ({{ T.clases_pct.SOFT }}) y LLUVIA ({{ T.clases_pct.LLUVIA }}) pesen lo mismo que HARD ({{ T.clases_pct.HARD }}).</p>
+        </div>
+        <div>
+          <h4>Piso de comparación</h4>
+          <p>Con la misma validación: «siempre parar» da F1 {{ T.piso_siempre_cv }} («nunca parar» da 0); para el neumático, «siempre HARD» da {{ T.piso_hard_cv }} y «al azar con las proporciones de cada clase», {{ T.piso_azar_cv }}.</p>
+        </div>
+      </div>
+
+      <h4>Validación</h4>
+      <p>2023–2024 se reparte en <strong>4 pedazos de 10 carreras enteras</strong>, estratificando las carreras por «tuvo paradas a lluvia» para que cada pedazo tenga una de las 4 carreras con lluvia. Una carrera nunca queda de los dos lados: sus vueltas se parecen entre sí. Si se repartiera al azar por filas, el F1 subiría a {{ T.azar_pit }} (parada) y {{ T.azar_comp }} (neumático): ese salto es fuga, no mejor modelo. 2025 se consultó una sola vez al final, sin retocar nada. Aclaración honesta: versiones anteriores del grupo ya habían mirado 2025, así que no es un test virgen a nivel proyecto.</p>
+
+      <h4>Comparación de modelos (media ± desvío en los 4 pedazos)</h4>
+      <div class="dos-col">
+        <div>
+          <p class="nota">Parada · F1 de la clase «para»</p>
+          <figure class="grafico grafico-chico" id="g-familias-pit" aria-label="Comparación de familias para la parada"></figure>
+          <div class="tabla-envoltura"><table class="tabla"><thead><tr><th>Modelo</th><th class="n">Validación (media ± desvío)</th><th class="n">Entrenamiento</th></tr></thead><tbody>{% for f in T.familias.pit %}<tr{% if f.elegido %} class="fila-elegida"{% endif %}><td>{{ f.modelo }}</td><td class="n">{{ f.media }} ± {{ f.desvio }}</td><td class="n">{{ f.train }}</td></tr>{% endfor %}</tbody></table></div>
+        </div>
+        <div>
+          <p class="nota">Neumático · F1 macro</p>
+          <figure class="grafico grafico-chico" id="g-familias-comp" aria-label="Comparación de familias para el neumático"></figure>
+          <div class="tabla-envoltura"><table class="tabla"><thead><tr><th>Modelo</th><th class="n">Validación (media ± desvío)</th><th class="n">Entrenamiento</th></tr></thead><tbody>{% for f in T.familias.comp %}<tr{% if f.elegido %} class="fila-elegida"{% endif %}><td>{{ f.modelo }}</td><td class="n">{{ f.media }} ± {{ f.desvio }}</td><td class="n">{{ f.train }}</td></tr>{% endfor %}</tbody></table></div>
+        </div>
+      </div>
+      <p>Regla de la cátedra: el modelo complejo se queda solo si su ventaja supera el desvío. Con las mejores configuraciones de cada uno y 3 repeticiones de los pedazos ({{ T.par_folds }} pedazos), el bosque le gana a la logística ajustada por <strong>{{ T.par_pit }}</strong> en parada ({{ T.par_pit_folds }} de {{ T.par_folds }} pedazos) y por <strong>{{ T.par_comp }}</strong> en neumático ({{ T.par_comp_folds }} de {{ T.par_folds }}).</p>
+
+      <h4>Ajuste del modelo elegido</h4>
+      <p>Grilla de profundidad (8, 12, 16) × hoja mínima (10, 25, 60). Gana profundidad 12 y hoja 10 en los dos pasos: F1 de validación {{ T.cv_pit }} ± {{ T.cv_pit_sd }} en parada y {{ T.cv_comp }} ± {{ T.cv_comp_sd }} en neumático. El bosque memoriza parte del entrenamiento (F1 de entrenamiento {{ T.cv_pit_tr }} y {{ T.cv_comp_tr }}); por eso se informa siempre la validación. Sin pesos de clase el bosque de parada da {{ T.rf_sin_pesos }}: nunca predice parada. La logística ajustada llega a {{ T.log_pit }} (C = {{ T.log_pit_c }}) y {{ T.log_comp }} (C = {{ T.log_comp_c }}).</p>
+      <p><strong>Umbral.</strong> El puntaje del bosque no es una probabilidad calibrada. Con las predicciones fuera de pedazo de 2023–2024 se elige el umbral de máximo F1 (ante empate, el más alto): <strong>{{ T.umbral }}</strong>, con F1 {{ T.u_f1 }}, precisión {{ T.u_prec }} y recall {{ T.u_rec }}. La curva es casi plana: con 0,55 el F1 es {{ T.u055_f1 }}, con más precisión ({{ T.u055_prec }}) y menos recall ({{ T.u055_rec }}). {% if T.f2.coincide %}La regla F2 de la corrección elige el mismo umbral.{% else %}La regla F2 de la corrección elige {{ T.f2.umbral }} en este entorno (ver «Qué corregimos»).{% endif %}</p>
+      <figure class="grafico grafico-chico" id="g-pr" aria-label="Curva precisión–recall con umbrales"></figure>
+      <p class="nota">Cada punto es un umbral (rótulo). Bajar el umbral mueve el punto a la derecha (más paradas anticipadas) y hacia abajo (más falsas alarmas por cada acierto). La línea punteada es el piso: la precisión de «siempre parar», igual a la proporción de vueltas con parada en 2023–2024 ({{ T.prev_train }}).</p>
+      <div class="tabla-envoltura">
+      <table class="tabla">
+        <thead><tr><th>Umbral (2025, descriptivo)</th><th class="n">Paradas con alarma</th><th class="n">Sin alarma</th><th class="n">Falsas alarmas</th><th class="n">Recall</th><th class="n">Precisión</th></tr></thead>
+        <tbody>{% for f in T.corr.umbrales %}
+          <tr{% if f.base %} class="fila-elegida"{% endif %}><td>{{ f.u }}{% if f.base %} · elegido{% endif %}</td><td class="n">{{ f.vp }}</td><td class="n">{{ f.fn }}</td><td class="n">{{ f.fp }}</td><td class="n">{{ f.rec }}</td><td class="n">{{ f.prec }}</td></tr>{% endfor %}
+        </tbody>
+      </table>
+      </div>
+
+      <h4>Resultado en test (2025)</h4>
+      <div class="dos-col">
+        <div class="tabla-envoltura">
+        <table class="tabla">
+          <thead><tr><th>Parada</th><th class="n">Modelo</th><th class="n">Siempre parar</th></tr></thead>
+          <tbody>
+            <tr><td>F1 clase «para»</td><td class="n"><strong>{{ T.test_f1 }}</strong></td><td class="n">{{ T.test_siempre }}</td></tr>
+            <tr><td>Precisión</td><td class="n">{{ T.test_prec }}</td><td class="n">{{ T.test_siempre_prec }}</td></tr>
+            <tr><td>Recall</td><td class="n">{{ T.test_rec }}</td><td class="n">100 %</td></tr>
+            <tr><td>Accuracy</td><td class="n">{{ T.test_acc }}</td><td class="n">«nunca parar»: {{ T.test_nunca_acc }}</td></tr>
+          </tbody>
+        </table>
+        </div>
+        <div class="tabla-envoltura">
+        <table class="tabla">
+          <thead><tr><th>Neumático</th><th class="n">Precisión</th><th class="n">Recall</th><th class="n">F1</th><th class="n">Paradas</th></tr></thead>
+          <tbody>
+            {% for c in ['SOFT','MEDIUM','HARD','LLUVIA'] %}
+            <tr><td><span class="chip chip-{{ c|lower }}">{{ c }}</span></td><td class="n">{{ T.por_clase[c].p }}</td><td class="n">{{ T.por_clase[c].r }}</td><td class="n">{{ T.por_clase[c].f }}</td><td class="n">{{ T.por_clase[c].n }}</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+        </div>
+      </div>
+      <p>Matriz de la parada: {{ T.test_vp }} paradas con alarma, {{ T.test_fn }} sin alarma y {{ T.test_fp }} falsas alarmas. Sistema completo: {{ T.sis_ambas }} de {{ T.sis_paradas }} paradas con parada y neumático correctos ({{ T.sis_pct }}); entre las paradas detectadas el neumático es correcto en el {{ T.sis_comp_det }} (con «siempre HARD» serían {{ T.sis_hard }}).</p>
+
+      <h4>Análisis de errores</h4>
+      <figure class="grafico grafico-chico" id="g-distancias" aria-label="Falsas alarmas por distancia a la próxima parada"></figure>
+      <p><strong>Las falsas alarmas no son al azar.</strong> El {{ T.fp_13_pct }} llega 1 a 3 vueltas antes de una parada real y el {{ T.fp_410_pct }}, 4 a 10 vueltas antes. El {{ T.fp_sin_pct }} restante no tiene parada en las 10 vueltas siguientes; de esas, en el {{ T.fp_no_vuelve }} el piloto ya no vuelve a parar (stints finales largos). Ejemplo: {{ T.ejemplo.piloto }} en {{ T.ejemplo.carrera }} 2025, con la alarma prendida desde la vuelta {{ T.ejemplo.vuelta }} y la parada {{ T.ejemplo.faltan|int }} vueltas después.</p>
+      <div class="tabla-envoltura">
+      <table class="tabla">
+        <thead><tr><th>Paradas de 2025</th><th class="n">Sin alarma (no anticipadas)</th><th class="n">Con alarma (anticipadas)</th></tr></thead>
+        <tbody>
+          <tr><td>Cantidad</td><td class="n">{{ T.perfil.FN.paradas }}</td><td class="n">{{ T.perfil.VP.paradas }}</td></tr>
+          <tr><td>Con safety car</td><td class="n">{{ T.perfil.FN.pct_safety_car }}</td><td class="n">{{ T.perfil.VP.pct_safety_car }}</td></tr>
+          <tr><td>Montan neumático de lluvia</td><td class="n">{{ T.perfil.FN.pct_monta_lluvia }}</td><td class="n">{{ T.perfil.VP.pct_monta_lluvia }}</td></tr>
+          <tr><td>Con neumático de menos de 8 vueltas</td><td class="n">{{ T.perfil.FN.pct_neumatico_menor_8 }}</td><td class="n">{{ T.perfil.VP.pct_neumatico_menor_8 }}</td></tr>
+          <tr><td>En las últimas 10 vueltas</td><td class="n">{{ T.perfil.FN.pct_ultimas_10_vueltas }}</td><td class="n">{{ T.perfil.VP.pct_ultimas_10_vueltas }}</td></tr>
+          <tr><td>Edad mediana del neumático</td><td class="n">{{ T.perfil.FN.edad_mediana }} vueltas</td><td class="n">{{ T.perfil.VP.edad_mediana }} vueltas</td></tr>
+        </tbody>
+      </table>
+      </div>
+      <p>Lo que se escapa no se escapa por una vuelta: con alarma en la vuelta exacta hay {{ T.alarma_exacta }} de las paradas y con alarma en esa vuelta o en las 3 anteriores, {{ T.alarma_ventana }}.</p>
+      <p><strong>Neumático.</strong> Las confusiones son entre compuestos vecinos (MEDIUM→SOFT {{ T.comp_errores[0].paradas }}, HARD→MEDIUM {{ T.comp_errores[1].paradas }}). Acierta más cuando se viene de SOFT ({{ T.comp_entrada.SOFT }}) que de HARD ({{ T.comp_entrada.HARD }}). El caso extremo es <strong>Bélgica 2025: {{ T.belgica_ok }} de {{ T.belgica_n }}</strong>. Todo el pelotón larga con intermedios y pasa a seco: el modelo ve que en la vuelta anterior todos estaban en intermedios y responde LLUVIA. No tiene una señal de que la pista se está secando.</p>
+      <figure class="grafico grafico-chico" id="g-matriz" aria-label="Matriz de confusión del neumático"></figure>
+
+      <h4>Qué variables usa</h4>
+      <p>Importancia por permutación en los pedazos de validación (cuánto cae el F1 al desordenar cada variable). <strong>Con permutación</strong> (izquierda parada, derecha neumático): para parar pesan la edad del neumático, las paradas hechas, si ya usó HARD y el compuesto actual; para el neumático, el momento de carrera y qué lleva el pelotón. Si dos variables cuentan lo mismo, la importancia se reparte; importancia no es causa.</p>
+      <div class="dos-col">
+        <figure class="grafico grafico-chico" id="g-imp-pit" aria-label="Importancia de variables para la parada"></figure>
+        <figure class="grafico grafico-chico" id="g-imp-comp" aria-label="Importancia de variables para el neumático"></figure>
+      </div>
+      <p><strong>Sin permutación (MDI):</strong> cuánto reduce cada variable la impureza en los árboles del bosque final. Para parar encabezan {{ T.corr.mdi_pit|join(", ") }}; para el neumático, {{ T.corr.mdi_comp|join(", ") }}. MDI se mide sobre el entrenamiento y favorece variables con muchos valores posibles (temperaturas, circuito): por eso el clima aparece alto acá y cerca de cero en la permutación, que se mide en carreras que el modelo no vio. Que una variable tenga MDI baja no prueba que el bosque la ignore, y que la tenga alta no prueba que ayude a generalizar.</p>
+      <div class="dos-col">
+        <figure class="grafico grafico-chico" id="g-mdi-pit" aria-label="Importancia MDI para la parada"></figure>
+        <figure class="grafico grafico-chico" id="g-mdi-comp" aria-label="Importancia MDI para el neumático"></figure>
+      </div>
+    </div>
+  </details>
+</section>
+
+<!-- ================================================================== COPA -->
+<div class="pit-lane" role="presentation"><span class="pit-lane-pit" aria-hidden="true">PIT</span>
+  <div class="pit-lane-texto"><span class="mono">PIT LANE OPEN</span><strong>Boxes abiertos.<br>Tu turno.</strong><p>Ya sabés qué mirar. Ahora revisá cada carrera vuelta a vuelta y armá tus propios escenarios.</p></div>
+</div>
+
+<!-- 04 · EXPLORÁ -->
+<section class="seccion seccion-ancha race-control" id="explora" data-numero="04">
+  <figure class="circuito" aria-hidden="true"><img src="img/circuito-marina-bay.webp" alt="" loading="lazy" width="1252" height="704"><figcaption class="mono">MARINA BAY · SINGAPUR · 1 DE LOS 24 CIRCUITOS DEL DATASET</figcaption></figure>
+  <div class="seccion-cabeza">
+    <p class="seccion-numero"><span class="etiqueta-tv"><b>PIT</b> RACE CONTROL</span> Explorá</p>
+    <h2>Todas las paradas, carrera por carrera</h2>
+    <p class="bajada">Cada vuelta tiene la predicción de un modelo que <strong>no vio esa carrera</strong>: en 2025, el modelo final; en 2023–2024, el de la validación cruzada que dejó afuera esa carrera.</p>
+  </div>
+
+  <div class="controles" role="group" aria-label="Filtros">
+    <div class="control">
+      <span class="control-etiqueta" id="et-temp">Temporada</span>
+      <div class="segmentado" role="radiogroup" aria-labelledby="et-temp" id="c-temporada">
+        <button type="button" role="radio" data-valor="2023">2023</button>
+        <button type="button" role="radio" data-valor="2024">2024</button>
+        <button type="button" role="radio" data-valor="2025" aria-checked="true">2025</button>
+        <button type="button" role="radio" data-valor="0">Todas</button>
+      </div>
+    </div>
+    <label class="control">
+      <span class="control-etiqueta">Tipo de parada</span>
+      <select id="c-contexto">
+        <option value="Todas">Todas</option>
+        <option>En seco, sin safety car</option>
+        <option>Con safety car</option>
+        <option>A neumático de lluvia</option>
+      </select>
+    </label>
+    <label class="control control-umbral">
+      <span class="control-etiqueta">Umbral de alarma <output id="o-umbral">{{ T.umbral }}</output></span>
+      <input type="range" id="c-umbral" min="0.2" max="0.8" step="0.025" value="{{ T.umbral }}">
+      <span class="control-ayuda">Más bajo: más alarmas y más paradas anticipadas. <button type="button" class="enlace" id="b-umbral">Volver a {{ T.umbral }}</button></span>
+    </label>
+  </div>
+
+  <div class="resumen-vista" id="resumen-vista" aria-live="polite"></div>
+
+  <div class="explora-grid">
+    <div class="panel">
+      <h3 class="panel-titulo">Panorama · paradas reales por carrera</h3>
+      <p class="panel-ayuda">Cian: el modelo tenía la alarma encendida en la vuelta de la parada. Hacé clic en una carrera para abrirla.</p>
+      <figure class="grafico" id="g-panorama" aria-label="Paradas por carrera"></figure>
+    </div>
+    <div class="panel">
+      <div class="panel-cabeza">
+        <h3 class="panel-titulo" id="t-carrera">Carrera</h3>
+        <span class="insignia" id="i-origen"></span>
+      </div>
+      <div class="controles controles-chicos">
+        <label class="control"><span class="control-etiqueta">Gran Premio</span><select id="c-carrera"></select></label>
+        <label class="control"><span class="control-etiqueta">Piloto</span><select id="c-piloto"><option value="">Todos</option></select></label>
+      </div>
+      <p class="panel-ayuda">Cada celda es una vuelta de un piloto. Gris: sin alarma. Cian: alarma encendida, más claro cuanto mayor el puntaje. Los círculos son las paradas reales, con el color del neumático que se montó. Pasá el mouse para ver el detalle o hacé clic en una celda.</p>
+      <figure class="grafico grafico-mapa" id="g-carrera" aria-label="Mapa de la carrera"></figure>
+    </div>
+  </div>
+
+  <div class="detalle" id="detalle" hidden>
+    <div class="detalle-cabeza">
+      <div>
+        <p class="volanta" id="d-volanta"></p>
+        <h3 id="d-titulo"></h3>
+      </div>
+      <button type="button" class="boton" id="b-probar">Probar esta vuelta en el modelo →</button>
+    </div>
+    <div class="detalle-grid">
+      <div>
+        <h4>Lo que pasó y lo que dijo el modelo</h4>
+        <dl class="ficha" id="d-resultado"></dl>
+        <h4>Neumático que propondría si para</h4>
+        <figure class="grafico grafico-mini" id="g-prob-explora" aria-label="Probabilidad de cada neumático"></figure>
+      </div>
+      <div>
+        <h4>Lo que sabía el modelo al empezar la vuelta</h4>
+        <dl class="ficha ficha-variables" id="d-variables"></dl>
+      </div>
+    </div>
+    <h4 id="d-tray-titulo">Puntaje vuelta a vuelta</h4>
+    <p class="panel-ayuda">Línea: puntaje de parada del piloto; trazos: umbral; franjas ámbar: vueltas con safety car; círculos: paradas reales.</p>
+    <figure class="grafico" id="g-trayectoria" aria-label="Puntaje vuelta a vuelta"></figure>
+  </div>
+  <p class="vacio" id="detalle-vacio">Elegí un piloto o hacé clic en una vuelta del mapa para ver su ficha.</p>
+</section>
+
+<!-- 05 · PROBÁ EL MODELO -->
+<section class="seccion seccion-ancha simulador" id="proba" data-numero="05">
+  <div class="seccion-cabeza">
+    <p class="seccion-numero"><span class="etiqueta-tv"><b>SIM</b> STRATEGY SIMULATOR</span> Probá el modelo</p>
+    <h2>¿Para o sigue? Poné a prueba al modelo</h2>
+    <p class="bajada">Elegí una carrera real y recorrela vuelta a vuelta: vas a ver qué predijo el modelo y qué pasó de verdad. O armá tu propio escenario y pedile una predicción. El cálculo lo hacen los mismos dos random forest de la Entrega 3.</p>
+  </div>
+
+  <div class="modos segmentado" role="tablist" aria-label="Modo del simulador">
+    <button type="button" role="tab" id="t-real" aria-selected="true" aria-controls="modo-real" data-modo="real"><b>1</b> Vuelta real · ¿acierta?</button>
+    <button type="button" role="tab" id="t-propio" aria-selected="false" aria-controls="formulario" data-modo="propio"><b>2</b> Mi escenario · ¿qué predice?</button>
+  </div>
+
+  <div class="proba-grid">
+    <div class="sim-izq">
+
+      <!-- MODO 1 · una vuelta real, con lo que pasó de verdad -->
+      <div class="sim-panel" id="modo-real" role="tabpanel" aria-labelledby="t-real">
+        <div class="sim-elegir">
+          <label class="control"><span class="control-etiqueta">Carrera</span><select id="s-carrera"></select></label>
+          <label class="control"><span class="control-etiqueta">Piloto</span><select id="s-piloto"></select></label>
+        </div>
+        <div class="sim-vuelta">
+          <button type="button" class="paso" id="s-prev" aria-label="Vuelta anterior">◀</button>
+          <div class="sim-vuelta-centro">
+            <span class="control-etiqueta">Vuelta <output id="s-vuelta-n">—</output></span>
+            <input type="range" id="s-vuelta" min="0" max="0" step="1" value="0" aria-label="Vuelta">
+          </div>
+          <button type="button" class="paso" id="s-next" aria-label="Vuelta siguiente">▶</button>
+        </div>
+        <div class="sim-atajos">
+          <button type="button" class="boton boton-sec" id="s-proxima">Ir a la próxima parada real</button>
+          <button type="button" class="boton boton-sec" id="b-ejemplo">Sorprendeme</button>
+          <button type="button" class="boton" id="s-editar">Editar esta situación →</button>
+        </div>
+        <h4 class="sim-sub">Lo que sabía el modelo al empezar la vuelta</h4>
+        <dl class="situacion" id="s-situacion"></dl>
+        <h4 class="sim-sub">Puntaje de parada de este piloto, vuelta a vuelta</h4>
+        <p class="panel-ayuda">Línea cian: puntaje · trazos: umbral {{ T.umbral }} · círculos: paradas reales · rombo: la vuelta elegida · franjas ámbar: safety car. Hacé clic en la línea para saltar a una vuelta.</p>
+        <figure class="grafico" id="g-sim-tray" aria-label="Puntaje de parada vuelta a vuelta"></figure>
+        <p class="partir-nota">La predicción que ves es la de un modelo que <strong>no vio esta carrera</strong>: en 2025, el modelo final; en 2023–2024, el de la validación cruzada que la dejó afuera. El piloto no es una variable del modelo; sí lo son su equipo y lo que pasó en sus vueltas anteriores.</p>
+      </div>
+
+      <!-- MODO 2 · un escenario propio -->
+      <form class="formulario" id="formulario" novalidate role="tabpanel" aria-labelledby="t-propio" hidden>
+        <div class="form-acciones">
+          <span class="form-origen" id="f-origen"></span>
+        </div>
+        <div class="errores" id="errores" role="alert" hidden></div>
+
+        <fieldset>
+          <legend>Carrera</legend>
+          <label>Circuito<select name="circuit_short_name"></select></label>
+          <label>Equipo<select name="team_name"></select></label>
+          <label>Vuelta que empieza<input type="number" name="lap_number" inputmode="numeric" step="1"></label>
+        </fieldset>
+
+        <fieldset>
+          <legend>El piloto, en la vuelta anterior</legend>
+          <label>Neumático puesto<select name="compound_prev"></select></label>
+          <label>Edad del neumático (vueltas)<input type="number" name="tyre_age_prev" inputmode="numeric" step="1"></label>
+          <label>Posición<input type="number" name="position_prev" inputmode="numeric" step="1"></label>
+          <label>Paradas ya hechas<input type="number" name="stops_before" inputmode="numeric" step="1"></label>
+          <div class="checks" role="group" aria-label="Compuestos ya usados en la carrera">
+            <span class="checks-titulo">Compuestos ya usados en la carrera</span>
+            <label class="check"><input type="checkbox" name="used_soft"> <span class="chip chip-soft">SOFT</span></label>
+            <label class="check"><input type="checkbox" name="used_medium"> <span class="chip chip-medium">MEDIUM</span></label>
+            <label class="check"><input type="checkbox" name="used_hard"> <span class="chip chip-hard">HARD</span></label>
+          </div>
+        </fieldset>
+
+        <fieldset>
+          <legend>El pelotón, en la vuelta anterior (autos en pista con cada neumático)</legend>
+          <label><span class="chip chip-soft">SOFT</span><input type="number" name="n_soft" inputmode="numeric" step="1" min="0"></label>
+          <label><span class="chip chip-medium">MEDIUM</span><input type="number" name="n_medium" inputmode="numeric" step="1" min="0"></label>
+          <label><span class="chip chip-hard">HARD</span><input type="number" name="n_hard" inputmode="numeric" step="1" min="0"></label>
+          <label><span class="chip chip-lluvia">LLUVIA</span><input type="number" name="n_lluvia" inputmode="numeric" step="1" min="0"></label>
+        </fieldset>
+
+        <fieldset>
+          <legend>Clima, en la vuelta anterior</legend>
+          <label>Temperatura de pista (°C)<input type="number" name="track_temperature_prev" inputmode="decimal" step="0.1"></label>
+          <label>Temperatura del aire (°C)<input type="number" name="air_temperature_prev" inputmode="decimal" step="0.1"></label>
+          <label>Humedad (%)<input type="number" name="humidity_prev" inputmode="decimal" step="0.1"></label>
+          <label class="check check-solo"><input type="checkbox" name="rainfall_prev"> Llueve</label>
+        </fieldset>
+        <p class="partir-nota">Cambiá cualquier valor y la predicción se recalcula al instante. Solo se aceptan valores dentro de lo que el modelo vio al entrenar (2023–2024); si no, te avisa qué corregir.</p>
+      </form>
+    </div>
+
+    <!-- Resultado: lo que predice el modelo y, con una vuelta real, lo que pasó -->
+    <aside class="resultado" id="resultado" aria-live="polite">
+      <p class="volanta" id="r-volanta">Lo que predice el modelo</p>
+      <p class="veredicto" id="r-veredicto">—</p>
+      <div class="decisiones">
+        <div class="decision" id="r-d-para">
+          <span class="decision-preg">¿Para en esta vuelta?</span>
+          <span class="decision-valor" id="r-para">—</span>
+          <span class="decision-det" id="r-para-det"></span>
+        </div>
+        <div class="decision" id="r-d-comp">
+          <span class="decision-preg">Neumático, si para</span>
+          <span class="decision-valor" id="r-comp">—</span>
+          <span class="decision-det" id="r-comp-det"></span>
+        </div>
+      </div>
+
+      <div class="comparacion" id="r-comparacion" hidden>
+        <span class="decision-preg">Lo que pasó de verdad</span>
+        <p class="comparacion-real" id="r-real-pasado"></p>
+        <p class="comparacion-juicio" id="r-juicio"></p>
+      </div>
+
+      <p class="r-texto" id="r-texto"></p>
+      <h4>Puntaje de parada</h4>
+      <figure class="grafico grafico-mini" id="g-puntaje" aria-label="Puntaje de parada contra el umbral"></figure>
+      <h4>Probabilidad de cada neumático</h4>
+      <figure class="grafico grafico-mini" id="g-prob-proba" aria-label="Probabilidad de cada neumático"></figure>
+      <ul class="avisos" id="r-avisos"></ul>
+      <p class="r-real" id="r-real" hidden></p>
+    </aside>
+  </div>
+</section>
+</main>
+
+<footer class="pie">
+  <div class="pie-bandera" aria-hidden="true"></div>
+  <div class="pie-interior">
+    <div>
+      <p class="marca"><span class="marca-logo" aria-hidden="true"></span><span class="marca-texto">VENTANA<b>DE BOXES</b></span></p>
+      <p>Grupo 5K10-10 · Castillo, Expósito, Epifani, Falabella, Farías y Camacho · Ciencia de Datos, UTN Facultad Regional Mendoza, 2026.</p>
+      <p>Imágenes: monoplaza de la portada y trazado de Marina Bay provistos por el grupo, usados con fines académicos. Gráficos e ilustraciones: propios.</p>
+      <p>Datos: <a href="https://openf1.org/" target="_blank" rel="noopener">OpenF1</a>. Código, pipeline y notebooks: <a href="https://github.com/solfalabella7/f1-strategy-pipeline" target="_blank" rel="noopener">github.com/solfalabella7/f1-strategy-pipeline</a>.</p>
+    </div>
+    <div class="pie-repro">
+      <p class="volanta">Reproducibilidad</p>
+      <p>Generada el {{ T.fecha_build }} con <code>build_app.py</code> a partir de la capa Silver del pipeline, con scikit-learn {{ T.sklearn }} y semilla 42. {{ T.n_verif_ok }} de {{ T.n_verif }} números de control coinciden con el notebook de la Entrega 3 (v6). El modelo del navegador coincide con <code>predict_proba</code> de Python en las {{ T.poblacion }} vueltas (diferencia máxima {{ T.max_dif }}).</p>
+    </div>
+  </div>
+</footer>
+
+<script id="specs" type="application/json">{{ specs }}</script>
+<script id="config" type="application/json">{{ config }}</script>
+<script type="module" src="app.js"></script>
+</body>
+</html>

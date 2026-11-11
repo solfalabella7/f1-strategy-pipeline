@@ -1,0 +1,505 @@
+{
+ "fecha_construccion": "2026-11-11T14:39:04",
+ "versiones": {
+  "python": "3.12.16",
+  "scikit-learn": "1.6.1",
+  "pandas": "2.2.2",
+  "numpy": "2.0.2",
+  "altair": "5.5.0"
+ },
+ "semilla": 42,
+ "umbral": 0.475,
+ "origen_paradas": "reconstruido desde include/output/bronze (pit.json + stints.json)",
+ "comparacion_v6": [
+  {
+   "numero": "vueltas sin etiqueta descartadas",
+   "v6": 6627,
+   "app": 6627,
+   "coincide": true
+  },
+  {
+   "numero": "vueltas válidas",
+   "v6": 70746,
+   "app": 70746,
+   "coincide": true
+  },
+  {
+   "numero": "paradas reales",
+   "v6": 2333,
+   "app": 2333,
+   "coincide": true
+  },
+  {
+   "numero": "pilotos corregidos (Bélgica 2025)",
+   "v6": 20,
+   "app": 20,
+   "coincide": true
+  },
+  {
+   "numero": "población (vueltas con historia)",
+   "v6": 69472,
+   "app": 69472,
+   "coincide": true
+  },
+  {
+   "numero": "paradas con compuesto",
+   "v6": 2244,
+   "app": 2244,
+   "coincide": true
+  },
+  {
+   "numero": "umbral elegido (OOF)",
+   "v6": 0.475,
+   "app": 0.475,
+   "coincide": true
+  },
+  {
+   "numero": "test · F1 clase para",
+   "v6": 0.1279,
+   "app": 0.1279,
+   "coincide": true
+  },
+  {
+   "numero": "test · precisión",
+   "v6": 0.0724,
+   "app": 0.0724,
+   "coincide": true
+  },
+  {
+   "numero": "test · recall",
+   "v6": 0.5486,
+   "app": 0.5486,
+   "coincide": true
+  },
+  {
+   "numero": "test · alarmas",
+   "v6": 6077,
+   "app": 6077,
+   "coincide": true
+  },
+  {
+   "numero": "test · F1 macro compuesto",
+   "v6": 0.6378,
+   "app": 0.6378,
+   "coincide": true
+  },
+  {
+   "numero": "test · accuracy compuesto",
+   "v6": 0.6409,
+   "app": 0.6409,
+   "coincide": true
+  },
+  {
+   "numero": "sistema · ambas correctas",
+   "v6": 342,
+   "app": 342,
+   "coincide": true
+  },
+  {
+   "numero": "episodios de alarma",
+   "v6": 641,
+   "app": 641,
+   "coincide": true
+  },
+  {
+   "numero": "episodios que terminan en parada",
+   "v6": 0.705,
+   "app": 0.7051,
+   "coincide": true
+  },
+  {
+   "numero": "CV · F1 parada (bosque elegido)",
+   "v6": 0.1457,
+   "app": 0.1457,
+   "coincide": true
+  },
+  {
+   "numero": "CV · F1 macro compuesto (bosque elegido)",
+   "v6": 0.5608,
+   "app": 0.5608,
+   "coincide": true
+  },
+  {
+   "numero": "CV · diferencia bosque − logística (parada)",
+   "v6": 0.0392,
+   "app": 0.0392,
+   "coincide": true
+  },
+  {
+   "numero": "CV · diferencia bosque − logística (compuesto)",
+   "v6": 0.0489,
+   "app": 0.0489,
+   "coincide": true
+  }
+ ],
+ "paridad_navegador": {
+  "parada": {
+   "verificado": true,
+   "filas": 69472,
+   "max_diferencia": 1.5543122344752192e-15,
+   "misma_clase": 1.0
+  },
+  "compuesto": {
+   "verificado": true,
+   "filas": 69472,
+   "max_diferencia": 5.551115123125783e-16,
+   "misma_clase": 1.0
+  }
+ },
+ "metricas_test": {
+  "pit": {
+   "modelo": {
+    "f1": 0.12792557057711876,
+    "precision": 0.07240414678295211,
+    "recall": 0.5486284289276808,
+    "f1_macro": 0.4968523702533205,
+    "accuracy": 0.7673634001628727,
+    "alarmas": 6077
+   },
+   "nunca": {
+    "f1": 0.0,
+    "precision": 0.0,
+    "recall": 0.0,
+    "f1_macro": 0.4921019459544631,
+    "accuracy": 0.9688990576647147,
+    "alarmas": 0
+   },
+   "siempre": {
+    "f1": 0.06032569859716424,
+    "precision": 0.031100942335285223,
+    "recall": 1.0,
+    "f1_macro": 0.03016284929858212,
+    "accuracy": 0.031100942335285223,
+    "alarmas": 25787
+   },
+   "matriz": [
+    [
+     19348,
+     5637
+    ],
+    [
+     362,
+     440
+    ]
+   ]
+  },
+  "comp": {
+   "modelo": {
+    "f1_macro": 0.6377543541273728,
+    "accuracy": 0.6408977556109726,
+    "accuracy_balanceada": 0.6549187876693244
+   },
+   "piso": {
+    "f1_macro": 0.14035874439461885,
+    "accuracy": 0.39027431421446385,
+    "accuracy_balanceada": 0.25
+   },
+   "por_clase": {
+    "SOFT": {
+     "precision": 0.4530386740331492,
+     "recall": 0.6165413533834586,
+     "f1-score": 0.5222929936305732,
+     "support": 133.0
+    },
+    "MEDIUM": {
+     "precision": 0.6447368421052632,
+     "recall": 0.5444444444444444,
+     "f1-score": 0.5903614457831325,
+     "support": 270.0
+    },
+    "HARD": {
+     "precision": 0.738255033557047,
+     "recall": 0.7028753993610224,
+     "f1-score": 0.7201309328968903,
+     "support": 313.0
+    },
+    "LLUVIA": {
+     "precision": 0.6842105263157895,
+     "recall": 0.7558139534883721,
+     "f1-score": 0.7182320441988951,
+     "support": 86.0
+    }
+   },
+   "matriz": [
+    [
+     82,
+     18,
+     33,
+     0
+    ],
+    [
+     56,
+     147,
+     43,
+     24
+    ],
+    [
+     35,
+     52,
+     220,
+     6
+    ],
+    [
+     8,
+     11,
+     2,
+     65
+    ]
+   ]
+  }
+ },
+ "sistema": {
+  "vueltas": 25787,
+  "paradas": 802,
+  "alarmas": 6077,
+  "detectadas": 440,
+  "ambas": 342,
+  "hard_ok": 228
+ },
+ "correcciones_e3": {
+  "umbrales_2025": [
+   {
+    "umbral": 0.3,
+    "vp": 582,
+    "fp": 11792,
+    "fn": 220,
+    "recall": 0.7256857855361596,
+    "precision": 0.047034103765960886
+   },
+   {
+    "umbral": 0.4,
+    "vp": 513,
+    "fp": 8017,
+    "fn": 289,
+    "recall": 0.6396508728179551,
+    "precision": 0.06014067995310668
+   },
+   {
+    "umbral": 0.45,
+    "vp": 460,
+    "fp": 6425,
+    "fn": 342,
+    "recall": 0.57356608478803,
+    "precision": 0.06681190994916485
+   },
+   {
+    "umbral": 0.475,
+    "vp": 440,
+    "fp": 5637,
+    "fn": 362,
+    "recall": 0.5486284289276808,
+    "precision": 0.07240414678295211
+   },
+   {
+    "umbral": 0.5,
+    "vp": 408,
+    "fp": 4801,
+    "fn": 394,
+    "recall": 0.5087281795511222,
+    "precision": 0.07832597427529277
+   }
+  ],
+  "distancias": [
+   {
+    "categoria": "1 vuelta",
+    "fp": 422,
+    "pct": 0.07486251552244101
+   },
+   {
+    "categoria": "2–3 vueltas",
+    "fp": 793,
+    "pct": 0.1406776654248714
+   },
+   {
+    "categoria": "4–10 vueltas",
+    "fp": 1992,
+    "pct": 0.3533794571580628
+   },
+   {
+    "categoria": "más de 10 vueltas",
+    "fp": 1444,
+    "pct": 0.256164626574419
+   },
+   {
+    "categoria": "sin parada posterior",
+    "fp": 986,
+    "pct": 0.1749157353202058
+   }
+  ],
+  "fp_total": 5637,
+  "fp_mediana": 7.0,
+  "cobertura": [
+   {
+    "k": 0,
+    "paradas": 440,
+    "pct": 0.5486284289276808
+   },
+   {
+    "k": 1,
+    "paradas": 446,
+    "pct": 0.5561097256857855
+   },
+   {
+    "k": 2,
+    "paradas": 450,
+    "pct": 0.5610972568578554
+   },
+   {
+    "k": 3,
+    "paradas": 454,
+    "pct": 0.5660847880299252
+   }
+  ],
+  "mdi": {
+   "pit": [
+    {
+     "variable": "tyre_age_prev",
+     "importancia": 0.1568351786669015
+    },
+    {
+     "variable": "lap_number",
+     "importancia": 0.12898308936755817
+    },
+    {
+     "variable": "circuit_short_name",
+     "importancia": 0.09139666431221445
+    },
+    {
+     "variable": "track_temperature_prev",
+     "importancia": 0.07592129475349135
+    },
+    {
+     "variable": "air_temperature_prev",
+     "importancia": 0.07118902794902933
+    },
+    {
+     "variable": "humidity_prev",
+     "importancia": 0.06378695959817714
+    },
+    {
+     "variable": "stops_before",
+     "importancia": 0.06332069951035219
+    },
+    {
+     "variable": "field_hard_prev",
+     "importancia": 0.06116705563091814
+    },
+    {
+     "variable": "field_medium_prev",
+     "importancia": 0.05070286745862727
+    },
+    {
+     "variable": "used_hard",
+     "importancia": 0.05015896257343106
+    },
+    {
+     "variable": "compound_prev",
+     "importancia": 0.0446246327600699
+    },
+    {
+     "variable": "field_soft_prev",
+     "importancia": 0.035702778549338635
+    },
+    {
+     "variable": "position_prev",
+     "importancia": 0.034578373196722224
+    },
+    {
+     "variable": "team_name",
+     "importancia": 0.03232435937411684
+    },
+    {
+     "variable": "used_medium",
+     "importancia": 0.014368281036570103
+    },
+    {
+     "variable": "used_soft",
+     "importancia": 0.00890355439681137
+    },
+    {
+     "variable": "field_lluvia_prev",
+     "importancia": 0.008381444373832285
+    },
+    {
+     "variable": "rainfall_prev",
+     "importancia": 0.007654776491838084
+    }
+   ],
+   "comp": [
+    {
+     "variable": "lap_number",
+     "importancia": 0.10966952503956433
+    },
+    {
+     "variable": "field_hard_prev",
+     "importancia": 0.10151048481034201
+    },
+    {
+     "variable": "humidity_prev",
+     "importancia": 0.09022657899081223
+    },
+    {
+     "variable": "track_temperature_prev",
+     "importancia": 0.07910965003774877
+    },
+    {
+     "variable": "field_soft_prev",
+     "importancia": 0.0747640470562536
+    },
+    {
+     "variable": "circuit_short_name",
+     "importancia": 0.06845629734970982
+    },
+    {
+     "variable": "field_lluvia_prev",
+     "importancia": 0.06644277669756461
+    },
+    {
+     "variable": "field_medium_prev",
+     "importancia": 0.0664351056490834
+    },
+    {
+     "variable": "air_temperature_prev",
+     "importancia": 0.06606507424671171
+    },
+    {
+     "variable": "compound_prev",
+     "importancia": 0.0632045668158665
+    },
+    {
+     "variable": "rainfall_prev",
+     "importancia": 0.055434624137191135
+    },
+    {
+     "variable": "stops_before",
+     "importancia": 0.039446320124550176
+    },
+    {
+     "variable": "tyre_age_prev",
+     "importancia": 0.03624222024143255
+    },
+    {
+     "variable": "used_medium",
+     "importancia": 0.02996126285886738
+    },
+    {
+     "variable": "used_hard",
+     "importancia": 0.019831594499525915
+    },
+    {
+     "variable": "used_soft",
+     "importancia": 0.01593247330165537
+    },
+    {
+     "variable": "position_prev",
+     "importancia": 0.012302142342495995
+    },
+    {
+     "variable": "team_name",
+     "importancia": 0.004965255800624585
+    }
+   ]
+  }
+ },
+ "umbral_regla_f2": 0.4
+}

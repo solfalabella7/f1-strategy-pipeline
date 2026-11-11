@@ -1,0 +1,34 @@
+# Publica la aplicación de la Entrega 4 (Entrega4/sitio) en GitHub Pages.
+# El sitio se genera localmente con `python build_app.py` (necesita la capa Silver,
+# que no está en el repositorio) y se sube ya construido; este flujo solo lo publica.
+name: Publicar app (GitHub Pages)
+
+on:
+  push:
+    branches: [main]
+    paths: ["Entrega4/sitio/**"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  publicar:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.despliegue.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: Entrega4/sitio
+      - id: despliegue
+        uses: actions/deploy-pages@v4

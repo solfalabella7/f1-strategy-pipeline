@@ -1,0 +1,1053 @@
+{
+ "familias": {
+  "pit": [
+   {
+    "modelo": "Random forest",
+    "f1_validacion": 0.1364229166918045,
+    "desvio": 0.02385615806953367,
+    "f1_entrenamiento": 0.300841167576123,
+    "folds": [
+     0.1187800963081862,
+     0.17291414752116083,
+     0.11189979123173277,
+     0.14209763170613823
+    ]
+   },
+   {
+    "modelo": "HistGradientBoosting",
+    "f1_validacion": 0.12746634252454758,
+    "desvio": 0.018938189004736514,
+    "f1_entrenamiento": 0.2574333314662912,
+    "folds": [
+     0.11346592761656342,
+     0.14591009579955785,
+     0.10416666666666667,
+     0.14632268001540238
+    ]
+   },
+   {
+    "modelo": "Árbol",
+    "f1_validacion": 0.1045916857947333,
+    "desvio": 0.011136426638454282,
+    "f1_entrenamiento": 0.17379252310498203,
+    "folds": [
+     0.08599324070597071,
+     0.11560943927256982,
+     0.10854558438467031,
+     0.1082184788157223
+    ]
+   },
+   {
+    "modelo": "Regresión logística",
+    "f1_validacion": 0.10015469175164428,
+    "desvio": 0.013996756407561933,
+    "f1_entrenamiento": 0.14545669984500573,
+    "folds": [
+     0.07912178956089479,
+     0.10952538997676735,
+     0.09635666347075743,
+     0.11561492399815754
+    ]
+   },
+   {
+    "modelo": "Piso siempre parar",
+    "f1_validacion": 0.06379865555734095,
+    "desvio": 0.005083214512852574,
+    "f1_entrenamiento": 0.06389674335713588,
+    "folds": [
+     0.07173950896743862,
+     0.05866145231534975,
+     0.06016321882710192,
+     0.06463044211947351
+    ]
+   },
+   {
+    "modelo": "Piso mayoría (nunca parar)",
+    "f1_validacion": 0.0,
+    "desvio": 0.0,
+    "f1_entrenamiento": 0.0,
+    "folds": [
+     0.0,
+     0.0,
+     0.0,
+     0.0
+    ]
+   }
+  ],
+  "comp": [
+   {
+    "modelo": "Random forest",
+    "f1_validacion": 0.5456076067841202,
+    "desvio": 0.09306591229101517,
+    "f1_entrenamiento": 0.7876391312354531,
+    "folds": [
+     0.5894072099364802,
+     0.6713272775377018,
+     0.42512106709145137,
+     0.49657487257084737
+    ]
+   },
+   {
+    "modelo": "HistGradientBoosting",
+    "f1_validacion": 0.44563983508925564,
+    "desvio": 0.08747514413694371,
+    "f1_entrenamiento": 0.9989788400772373,
+    "folds": [
+     0.42342848722159065,
+     0.3619623655913978,
+     0.40502645502645507,
+     0.5921420325175791
+    ]
+   },
+   {
+    "modelo": "Árbol",
+    "f1_validacion": 0.3893273577130213,
+    "desvio": 0.04977323727508525,
+    "f1_entrenamiento": 0.7413433462623682,
+    "folds": [
+     0.38304008620511987,
+     0.3107719761242672,
+     0.43881568304298146,
+     0.42468168547971674
+    ]
+   },
+   {
+    "modelo": "Regresión logística",
+    "f1_validacion": 0.3759021592262993,
+    "desvio": 0.011512618884702277,
+    "f1_entrenamiento": 0.7647919962229668,
+    "folds": [
+     0.3753483653126129,
+     0.3915958255580897,
+     0.37752341051634053,
+     0.35914103551815413
+    ]
+   },
+   {
+    "modelo": "Piso estratificado (al azar)",
+    "f1_validacion": 0.21243915618851256,
+    "desvio": 0.014976928060656492,
+    "f1_entrenamiento": 0.2553054683166386,
+    "folds": [
+     0.1917524941284815,
+     0.20591414348063283,
+     0.23135922431054864,
+     0.22073076283438722
+    ]
+   },
+   {
+    "modelo": "Piso mayoría (siempre HARD)",
+    "f1_validacion": 0.17299535566401078,
+    "desvio": 0.020811912129725777,
+    "f1_entrenamiento": 0.17248672557701206,
+    "folds": [
+     0.15084745762711865,
+     0.20323741007194246,
+     0.18108651911468812,
+     0.15681003584229392
+    ]
+   }
+  ]
+ },
+ "grillas": {
+  "pit": [
+   {
+    "modelo": "Regresión logística",
+    "C": 0.0001,
+    "class_weight": "None",
+    "f1_validacion": 0.0,
+    "desvio": 0.0,
+    "f1_entrenamiento": 0.0,
+    "rank": 10
+   },
+   {
+    "modelo": "Regresión logística",
+    "C": 0.0001,
+    "class_weight": "balanced",
+    "f1_validacion": 0.10481089954503518,
+    "desvio": 0.00874029304180428,
+    "f1_entrenamiento": 0.11186376722746633,
+    "rank": 4
+   },
+   {
+    "modelo": "Regresión logística",
+    "C": 0.0003,
+    "class_weight": "None",
+    "f1_validacion": 0.0,
+    "desvio": 0.0,
+    "f1_entrenamiento": 0.0,
+    "rank": 10
+   },
+   {
+    "modelo": "Regresión logística",
+    "C": 0.0003,
+    "class_weight": "balanced",
+    "f1_validacion": 0.10675390315973449,
+    "desvio": 0.008521686122453477,
+    "f1_entrenamiento": 0.1165580588972816,
+    "rank": 3
+   },
+   {
+    "modelo": "Regresión logística",
+    "C": 0.001,
+    "class_weight": "None",
+    "f1_validacion": 0.0,
+    "desvio": 0.0,
+    "f1_entrenamiento": 0.0,
+    "rank": 10
+   },
+   {
+    "modelo": "Regresión logística",
+    "C": 0.001,
+    "class_weight": "balanced",
+    "f1_validacion": 0.10976094301451869,
+    "desvio": 0.008019341472709468,
+    "f1_entrenamiento": 0.1230037047335654,
+    "rank": 1
+   },
+   {
+    "modelo": "Regresión logística",
+    "C": 0.003,
+    "class_weight": "None",
+    "f1_validacion": 0.0,
+    "desvio": 0.0,
+    "f1_entrenamiento": 0.0,
+    "rank": 10
+   },
+   {
+    "modelo": "Regresión logística",
+    "C": 0.003,
+    "class_weight": "balanced",
+    "f1_validacion": 0.10865986123804264,
+    "desvio": 0.006107520377815243,
+    "f1_entrenamiento": 0.13034165809272763,
+    "rank": 2
+   },
+   {
+    "modelo": "Regresión logística",
+    "C": 0.03,
+    "class_weight": "None",
+    "f1_validacion": 0.0,
+    "desvio": 0.0,
+    "f1_entrenamiento": 0.0,
+    "rank": 10
+   },
+   {
+    "modelo": "Regresión logística",
+    "C": 0.03,
+    "class_weight": "balanced",
+    "f1_validacion": 0.10433626882975472,
+    "desvio": 0.011516410047984265,
+    "f1_entrenamiento": 0.14198465441234512,
+    "rank": 5
+   },
+   {
+    "modelo": "Regresión logística",
+    "C": 0.3,
+    "class_weight": "None",
+    "f1_validacion": 0.027770906527646296,
+    "desvio": 0.028213502957553854,
+    "f1_entrenamiento": 0.00048496605237633366,
+    "rank": 9
+   },
+   {
+    "modelo": "Regresión logística",
+    "C": 0.3,
+    "class_weight": "balanced",
+    "f1_validacion": 0.10159411125147738,
+    "desvio": 0.014601213180750566,
+    "f1_entrenamiento": 0.14504425498811885,
+    "rank": 6
+   },
+   {
+    "modelo": "Regresión logística",
+    "C": 3,
+    "class_weight": "None",
+    "f1_validacion": 0.043649084021130456,
+    "desvio": 0.02057935300231528,
+    "f1_entrenamiento": 0.0018999132808847784,
+    "rank": 8
+   },
+   {
+    "modelo": "Regresión logística",
+    "C": 3,
+    "class_weight": "balanced",
+    "f1_validacion": 0.09937353941269388,
+    "desvio": 0.014355708163627901,
+    "f1_entrenamiento": 0.14565724347332704,
+    "rank": 7
+   },
+   {
+    "modelo": "Random forest",
+    "class_weight": "balanced_subsample",
+    "max_depth": 8,
+    "min_samples_leaf": 10,
+    "f1_validacion": 0.13579820640668322,
+    "desvio": 0.018764766140150428,
+    "f1_entrenamiento": 0.22891146709252086,
+    "rank": 6
+   },
+   {
+    "modelo": "Random forest",
+    "class_weight": "balanced_subsample",
+    "max_depth": 8,
+    "min_samples_leaf": 25,
+    "f1_validacion": 0.1356718840175228,
+    "desvio": 0.01777342149875212,
+    "f1_entrenamiento": 0.2215776073821785,
+    "rank": 7
+   },
+   {
+    "modelo": "Random forest",
+    "class_weight": "balanced_subsample",
+    "max_depth": 8,
+    "min_samples_leaf": 60,
+    "f1_validacion": 0.13052321939784892,
+    "desvio": 0.013034252532085535,
+    "f1_entrenamiento": 0.20769668580858672,
+    "rank": 9
+   },
+   {
+    "modelo": "Random forest",
+    "class_weight": "balanced_subsample",
+    "max_depth": 12,
+    "min_samples_leaf": 10,
+    "f1_validacion": 0.14570148070317734,
+    "desvio": 0.029535894716678255,
+    "f1_entrenamiento": 0.31755830530343837,
+    "rank": 1
+   },
+   {
+    "modelo": "Random forest",
+    "class_weight": "balanced_subsample",
+    "max_depth": 12,
+    "min_samples_leaf": 25,
+    "f1_validacion": 0.14486727069318933,
+    "desvio": 0.02635589270919926,
+    "f1_entrenamiento": 0.2757356592523285,
+    "rank": 2
+   },
+   {
+    "modelo": "Random forest",
+    "class_weight": "balanced_subsample",
+    "max_depth": 12,
+    "min_samples_leaf": 60,
+    "f1_validacion": 0.13792496405228177,
+    "desvio": 0.019956728252305028,
+    "f1_entrenamiento": 0.23776854207675446,
+    "rank": 5
+   },
+   {
+    "modelo": "Random forest",
+    "class_weight": "balanced_subsample",
+    "max_depth": 16,
+    "min_samples_leaf": 10,
+    "f1_validacion": 0.14258943206166813,
+    "desvio": 0.023107413567098774,
+    "f1_entrenamiento": 0.39507019085708645,
+    "rank": 3
+   },
+   {
+    "modelo": "Random forest",
+    "class_weight": "balanced_subsample",
+    "max_depth": 16,
+    "min_samples_leaf": 25,
+    "f1_validacion": 0.13893471373452365,
+    "desvio": 0.01880498212053592,
+    "f1_entrenamiento": 0.31081903499075964,
+    "rank": 4
+   },
+   {
+    "modelo": "Random forest",
+    "class_weight": "balanced_subsample",
+    "max_depth": 16,
+    "min_samples_leaf": 60,
+    "f1_validacion": 0.1349958483120009,
+    "desvio": 0.018980578382631307,
+    "f1_entrenamiento": 0.2507222010147873,
+    "rank": 8
+   },
+   {
+    "modelo": "Random forest",
+    "class_weight": "None",
+    "max_depth": 16,
+    "min_samples_leaf": 25,
+    "f1_validacion": 0.0,
+    "desvio": 0.0,
+    "f1_entrenamiento": 0.0,
+    "rank": 10
+   }
+  ],
+  "comp": [
+   {
+    "modelo": "Regresión logística",
+    "C": 0.0001,
+    "class_weight": "None",
+    "f1_validacion": 0.17299535566401078,
+    "desvio": 0.020811912129725777,
+    "f1_entrenamiento": 0.17248672557701206,
+    "rank": 13
+   },
+   {
+    "modelo": "Regresión logística",
+    "C": 0.0001,
+    "class_weight": "balanced",
+    "f1_validacion": 0.496251325247384,
+    "desvio": 0.08499682022447382,
+    "f1_entrenamiento": 0.6074315691000589,
+    "rank": 2
+   },
+   {
+    "modelo": "Regresión logística",
+    "C": 0.0003,
+    "class_weight": "None",
+    "f1_validacion": 0.17299535566401078,
+    "desvio": 0.020811912129725777,
+    "f1_entrenamiento": 0.1725854495739818,
+    "rank": 13
+   },
+   {
+    "modelo": "Regresión logística",
+    "C": 0.0003,
+    "class_weight": "balanced",
+    "f1_validacion": 0.5005224936864823,
+    "desvio": 0.08530299307141323,
+    "f1_entrenamiento": 0.6154501019991415,
+    "rank": 1
+   },
+   {
+    "modelo": "Regresión logística",
+    "C": 0.001,
+    "class_weight": "None",
+    "f1_validacion": 0.1999733632573399,
+    "desvio": 0.028793590117028887,
+    "f1_entrenamiento": 0.34871244095816556,
+    "rank": 12
+   },
+   {
+    "modelo": "Regresión logística",
+    "C": 0.001,
+    "class_weight": "balanced",
+    "f1_validacion": 0.4738382714689452,
+    "desvio": 0.09478216813214321,
+    "f1_entrenamiento": 0.6284095304857835,
+    "rank": 5
+   },
+   {
+    "modelo": "Regresión logística",
+    "C": 0.003,
+    "class_weight": "None",
+    "f1_validacion": 0.38354479689025833,
+    "desvio": 0.08945913810620883,
+    "f1_entrenamiento": 0.5056144521260335,
+    "rank": 9
+   },
+   {
+    "modelo": "Regresión logística",
+    "C": 0.003,
+    "class_weight": "balanced",
+    "f1_validacion": 0.48276931589954347,
+    "desvio": 0.09598450616324723,
+    "f1_entrenamiento": 0.644944063459668,
+    "rank": 3
+   },
+   {
+    "modelo": "Regresión logística",
+    "C": 0.03,
+    "class_weight": "None",
+    "f1_validacion": 0.44698740584011704,
+    "desvio": 0.06247616162184046,
+    "f1_entrenamiento": 0.657923096073082,
+    "rank": 6
+   },
+   {
+    "modelo": "Regresión logística",
+    "C": 0.03,
+    "class_weight": "balanced",
+    "f1_validacion": 0.481786907765834,
+    "desvio": 0.10057045288666526,
+    "f1_entrenamiento": 0.6937299964938595,
+    "rank": 4
+   },
+   {
+    "modelo": "Regresión logística",
+    "C": 0.3,
+    "class_weight": "None",
+    "f1_validacion": 0.38894325968690446,
+    "desvio": 0.029980614821576546,
+    "f1_entrenamiento": 0.7387324508830827,
+    "rank": 8
+   },
+   {
+    "modelo": "Regresión logística",
+    "C": 0.3,
+    "class_weight": "balanced",
+    "f1_validacion": 0.4035656520208302,
+    "desvio": 0.0155655983051383,
+    "f1_entrenamiento": 0.7514515669155103,
+    "rank": 7
+   },
+   {
+    "modelo": "Regresión logística",
+    "C": 3,
+    "class_weight": "None",
+    "f1_validacion": 0.3750884572789859,
+    "desvio": 0.015359415676053697,
+    "f1_entrenamiento": 0.7934578459215806,
+    "rank": 11
+   },
+   {
+    "modelo": "Regresión logística",
+    "C": 3,
+    "class_weight": "balanced",
+    "f1_validacion": 0.37601271279748927,
+    "desvio": 0.01815494757313188,
+    "f1_entrenamiento": 0.7835009783193427,
+    "rank": 10
+   },
+   {
+    "modelo": "Random forest",
+    "class_weight": "balanced_subsample",
+    "max_depth": 8,
+    "min_samples_leaf": 10,
+    "f1_validacion": 0.5452695369231642,
+    "desvio": 0.08232957566314204,
+    "f1_entrenamiento": 0.8266768219272752,
+    "rank": 9
+   },
+   {
+    "modelo": "Random forest",
+    "class_weight": "balanced_subsample",
+    "max_depth": 8,
+    "min_samples_leaf": 25,
+    "f1_validacion": 0.5597088705065094,
+    "desvio": 0.0785518352114251,
+    "f1_entrenamiento": 0.7353730723020646,
+    "rank": 5
+   },
+   {
+    "modelo": "Random forest",
+    "class_weight": "balanced_subsample",
+    "max_depth": 8,
+    "min_samples_leaf": 60,
+    "f1_validacion": 0.5455260305015291,
+    "desvio": 0.06650816126303881,
+    "f1_entrenamiento": 0.6689251269323402,
+    "rank": 6
+   },
+   {
+    "modelo": "Random forest",
+    "class_weight": "balanced_subsample",
+    "max_depth": 12,
+    "min_samples_leaf": 10,
+    "f1_validacion": 0.5608337312839624,
+    "desvio": 0.06393821797965948,
+    "f1_entrenamiento": 0.8364463133960264,
+    "rank": 1
+   },
+   {
+    "modelo": "Random forest",
+    "class_weight": "balanced_subsample",
+    "max_depth": 12,
+    "min_samples_leaf": 25,
+    "f1_validacion": 0.5598978159511421,
+    "desvio": 0.07783931826940677,
+    "f1_entrenamiento": 0.7374411922694113,
+    "rank": 2
+   },
+   {
+    "modelo": "Random forest",
+    "class_weight": "balanced_subsample",
+    "max_depth": 12,
+    "min_samples_leaf": 60,
+    "f1_validacion": 0.5455260305015291,
+    "desvio": 0.06650816126303881,
+    "f1_entrenamiento": 0.6689251269323402,
+    "rank": 6
+   },
+   {
+    "modelo": "Random forest",
+    "class_weight": "balanced_subsample",
+    "max_depth": 16,
+    "min_samples_leaf": 10,
+    "f1_validacion": 0.5598717320519668,
+    "desvio": 0.07367385078485396,
+    "f1_entrenamiento": 0.8392755889065856,
+    "rank": 4
+   },
+   {
+    "modelo": "Random forest",
+    "class_weight": "balanced_subsample",
+    "max_depth": 16,
+    "min_samples_leaf": 25,
+    "f1_validacion": 0.5598978159511421,
+    "desvio": 0.07783931826940677,
+    "f1_entrenamiento": 0.7374505232641482,
+    "rank": 2
+   },
+   {
+    "modelo": "Random forest",
+    "class_weight": "balanced_subsample",
+    "max_depth": 16,
+    "min_samples_leaf": 60,
+    "f1_validacion": 0.5455260305015291,
+    "desvio": 0.06650816126303881,
+    "f1_entrenamiento": 0.6689251269323402,
+    "rank": 6
+   },
+   {
+    "modelo": "Random forest",
+    "class_weight": "None",
+    "max_depth": 16,
+    "min_samples_leaf": 25,
+    "f1_validacion": 0.4830972101466053,
+    "desvio": 0.06989740921801785,
+    "f1_entrenamiento": 0.6683271649526166,
+    "rank": 10
+   }
+  ]
+ },
+ "pareada": {
+  "pit": {
+   "medias": {
+    "Regresión logística": 0.11028025750228602,
+    "Random forest": 0.14952426576119845
+   },
+   "desvios": {
+    "Regresión logística": 0.010888255818583934,
+    "Random forest": 0.02922802486549306
+   },
+   "diferencia_media": 0.03924400825891241,
+   "diferencia_desvio": 0.025506148112539012,
+   "folds_gana_bosque": 10,
+   "folds": 12,
+   "elegido": "Random forest",
+   "mejores_parametros": {
+    "Regresión logística": {
+     "C": 0.001,
+     "class_weight": "balanced"
+    },
+    "Random forest": {
+     "class_weight": "balanced_subsample",
+     "max_depth": 12,
+     "min_samples_leaf": 10
+    }
+   }
+  },
+  "comp": {
+   "medias": {
+    "Regresión logística": 0.5135967692902587,
+    "Random forest": 0.5624722157124156
+   },
+   "desvios": {
+    "Regresión logística": 0.07529845717686902,
+    "Random forest": 0.08822176485977781
+   },
+   "diferencia_media": 0.048875446422157,
+   "diferencia_desvio": 0.03378736268415661,
+   "folds_gana_bosque": 10,
+   "folds": 12,
+   "elegido": "Random forest",
+   "mejores_parametros": {
+    "Regresión logística": {
+     "C": 0.0003,
+     "class_weight": "balanced"
+    },
+    "Random forest": {
+     "class_weight": "balanced_subsample",
+     "max_depth": 12,
+     "min_samples_leaf": 10
+    }
+   }
+  }
+ },
+ "elegidos_cv": [
+  {
+   "etapa": "pit_stop",
+   "f1_entrenamiento": 0.31755830530343837,
+   "f1_validacion": 0.14570148070317734,
+   "desvio": 0.029535894716678255,
+   "folds": [
+    0.12173913043478261,
+    0.19212163096060816,
+    0.11853088480801335,
+    0.1504142766093053
+   ]
+  },
+  {
+   "etapa": "new_compound",
+   "f1_entrenamiento": 0.8364463133960264,
+   "f1_validacion": 0.5608337312839624,
+   "desvio": 0.06393821797965948,
+   "folds": [
+    0.5912804309729519,
+    0.6441648537587623,
+    0.4722540567951319,
+    0.5356355836090039
+   ]
+  }
+ ],
+ "ablacion": {
+  "pit": [
+   {
+    "experimento": "Todas las variables",
+    "f1": 0.14570148070317734,
+    "desvio": 0.029535894716678255,
+    "diferencia": 0.0
+   },
+   {
+    "experimento": "Sin tyre_age_prev",
+    "f1": 0.1382552975290468,
+    "desvio": 0.021236993123188906,
+    "diferencia": -0.007446183174130538
+   },
+   {
+    "experimento": "Sin compound_prev",
+    "f1": 0.14414368143846687,
+    "desvio": 0.033893153937529036,
+    "diferencia": -0.0015577992647104744
+   },
+   {
+    "experimento": "Sin position_prev",
+    "f1": 0.14172518475982607,
+    "desvio": 0.03145647644992242,
+    "diferencia": -0.003976295943351277
+   },
+   {
+    "experimento": "Sin stops_before",
+    "f1": 0.13989454902394755,
+    "desvio": 0.019849274944907222,
+    "diferencia": -0.005806931679229799
+   },
+   {
+    "experimento": "Sin used_* (compuestos ya usados)",
+    "f1": 0.1375643777282845,
+    "desvio": 0.027379323148237468,
+    "diferencia": -0.00813710297489284
+   },
+   {
+    "experimento": "Sin pelotón (field_*_prev)",
+    "f1": 0.13858629524627883,
+    "desvio": 0.0302952670682007,
+    "diferencia": -0.007115185456898515
+   },
+   {
+    "experimento": "Sin clima (temperaturas, humedad, lluvia)",
+    "f1": 0.14046412492617474,
+    "desvio": 0.021229291670211703,
+    "diferencia": -0.0052373557770026
+   },
+   {
+    "experimento": "Sin circuito y equipo",
+    "f1": 0.1364890757361601,
+    "desvio": 0.023397853082914494,
+    "diferencia": -0.009212404967017251
+   },
+   {
+    "experimento": "Sin lap_number",
+    "f1": 0.1299169518743142,
+    "desvio": 0.016614921290039844,
+    "diferencia": -0.015784528828863137
+   }
+  ],
+  "comp": [
+   {
+    "experimento": "Todas las variables",
+    "f1": 0.5608337312839624,
+    "desvio": 0.06393821797965948,
+    "diferencia": 0.0
+   },
+   {
+    "experimento": "Sin tyre_age_prev",
+    "f1": 0.557035448552868,
+    "desvio": 0.08685079589201056,
+    "diferencia": -0.0037982827310943934
+   },
+   {
+    "experimento": "Sin compound_prev",
+    "f1": 0.5751856724516649,
+    "desvio": 0.07411706422610172,
+    "diferencia": 0.014351941167702442
+   },
+   {
+    "experimento": "Sin position_prev",
+    "f1": 0.5444817701719691,
+    "desvio": 0.07452461691936092,
+    "diferencia": -0.01635196111199333
+   },
+   {
+    "experimento": "Sin stops_before",
+    "f1": 0.5330637414507229,
+    "desvio": 0.07178781985596167,
+    "diferencia": -0.027769989833239528
+   },
+   {
+    "experimento": "Sin used_* (compuestos ya usados)",
+    "f1": 0.5769769225935063,
+    "desvio": 0.07921026957864966,
+    "diferencia": 0.01614319130954389
+   },
+   {
+    "experimento": "Sin pelotón (field_*_prev)",
+    "f1": 0.512081883709284,
+    "desvio": 0.03880914402963767,
+    "diferencia": -0.04875184757467843
+   },
+   {
+    "experimento": "Sin clima (temperaturas, humedad, lluvia)",
+    "f1": 0.5750950361582616,
+    "desvio": 0.08063549724507922,
+    "diferencia": 0.014261304874299219
+   },
+   {
+    "experimento": "Sin circuito y equipo",
+    "f1": 0.5486602201351896,
+    "desvio": 0.07196342846018616,
+    "diferencia": -0.012173511148772853
+   },
+   {
+    "experimento": "Sin lap_number",
+    "f1": 0.5149487441176571,
+    "desvio": 0.08397741783377283,
+    "diferencia": -0.04588498716630529
+   }
+  ]
+ },
+ "azar": [
+  {
+   "etapa": "pit_stop",
+   "por_carrera": 0.14570148070317734,
+   "al_azar": 0.2497791014964733
+  },
+  {
+   "etapa": "new_compound",
+   "por_carrera": 0.5608337312839624,
+   "al_azar": 0.7531326893863549
+  }
+ ],
+ "importancia": {
+  "pit": [
+   {
+    "variable": "tyre_age_prev",
+    "caida": 0.02841777270283361,
+    "desvio": 0.009496480233249293,
+    "folds_positivos": 4
+   },
+   {
+    "variable": "stops_before",
+    "caida": 0.025470935414560258,
+    "desvio": 0.01847001318090963,
+    "folds_positivos": 4
+   },
+   {
+    "variable": "used_hard",
+    "caida": 0.019144992317901448,
+    "desvio": 0.00929754089351381,
+    "folds_positivos": 4
+   },
+   {
+    "variable": "compound_prev",
+    "caida": 0.015414815317502498,
+    "desvio": 0.008876283388621233,
+    "folds_positivos": 4
+   },
+   {
+    "variable": "position_prev",
+    "caida": 0.005782706984505801,
+    "desvio": 0.002092866410451544,
+    "folds_positivos": 4
+   },
+   {
+    "variable": "lap_number",
+    "caida": 0.004531234607809412,
+    "desvio": 0.005606997314028212,
+    "folds_positivos": 3
+   },
+   {
+    "variable": "circuit_short_name",
+    "caida": 0.003458584826536657,
+    "desvio": 0.007158230660233675,
+    "folds_positivos": 3
+   },
+   {
+    "variable": "team_name",
+    "caida": 0.0015572035154770743,
+    "desvio": 0.0020339212516421617,
+    "folds_positivos": 3
+   },
+   {
+    "variable": "used_soft",
+    "caida": 0.0014487435784673146,
+    "desvio": 0.002489126439004019,
+    "folds_positivos": 2
+   },
+   {
+    "variable": "air_temperature_prev",
+    "caida": 0.0011380344736227205,
+    "desvio": 0.005292443202404532,
+    "folds_positivos": 2
+   },
+   {
+    "variable": "used_medium",
+    "caida": 0.0003171752039047627,
+    "desvio": 0.0032638877073724627,
+    "folds_positivos": 2
+   },
+   {
+    "variable": "field_soft_prev",
+    "caida": 9.914731767033305e-05,
+    "desvio": 0.002455028723335355,
+    "folds_positivos": 2
+   },
+   {
+    "variable": "rainfall_prev",
+    "caida": -0.0013404947565208748,
+    "desvio": 0.0012058333908895678,
+    "folds_positivos": 1
+   },
+   {
+    "variable": "field_lluvia_prev",
+    "caida": -0.002958549948664072,
+    "desvio": 0.004967838004341852,
+    "folds_positivos": 1
+   },
+   {
+    "variable": "humidity_prev",
+    "caida": -0.003216011066666108,
+    "desvio": 0.008862520949957521,
+    "folds_positivos": 2
+   },
+   {
+    "variable": "field_medium_prev",
+    "caida": -0.003415057042022448,
+    "desvio": 0.0067640071640141675,
+    "folds_positivos": 1
+   },
+   {
+    "variable": "field_hard_prev",
+    "caida": -0.004543178217529095,
+    "desvio": 0.005891932691440136,
+    "folds_positivos": 1
+   },
+   {
+    "variable": "track_temperature_prev",
+    "caida": -0.007203056514779677,
+    "desvio": 0.008451546271757112,
+    "folds_positivos": 1
+   }
+  ],
+  "comp": [
+   {
+    "variable": "lap_number",
+    "caida": 0.049067181750076266,
+    "desvio": 0.03539050140849046,
+    "folds_positivos": 3
+   },
+   {
+    "variable": "field_lluvia_prev",
+    "caida": 0.046138505407612315,
+    "desvio": 0.060155464319513505,
+    "folds_positivos": 2
+   },
+   {
+    "variable": "field_soft_prev",
+    "caida": 0.04318924766499741,
+    "desvio": 0.02504278774152575,
+    "folds_positivos": 4
+   },
+   {
+    "variable": "field_hard_prev",
+    "caida": 0.0382172347045804,
+    "desvio": 0.007651022856760508,
+    "folds_positivos": 4
+   },
+   {
+    "variable": "used_hard",
+    "caida": 0.025944441373637182,
+    "desvio": 0.020392185654491864,
+    "folds_positivos": 4
+   },
+   {
+    "variable": "stops_before",
+    "caida": 0.02184125586057914,
+    "desvio": 0.016626828536236742,
+    "folds_positivos": 4
+   },
+   {
+    "variable": "used_medium",
+    "caida": 0.014028886494165508,
+    "desvio": 0.006272146886408931,
+    "folds_positivos": 4
+   },
+   {
+    "variable": "compound_prev",
+    "caida": 0.011046156365605814,
+    "desvio": 0.011393886787442752,
+    "folds_positivos": 3
+   },
+   {
+    "variable": "used_soft",
+    "caida": 0.007274489666297633,
+    "desvio": 0.015619916890217689,
+    "folds_positivos": 2
+   },
+   {
+    "variable": "humidity_prev",
+    "caida": 0.006830920951149821,
+    "desvio": 0.011865999816244917,
+    "folds_positivos": 3
+   },
+   {
+    "variable": "air_temperature_prev",
+    "caida": 0.004224083510623949,
+    "desvio": 0.013428641422666136,
+    "folds_positivos": 2
+   },
+   {
+    "variable": "track_temperature_prev",
+    "caida": 0.0026051807027344717,
+    "desvio": 0.011616323600247443,
+    "folds_positivos": 2
+   },
+   {
+    "variable": "position_prev",
+    "caida": 0.0017234316583587639,
+    "desvio": 0.01576307056454371,
+    "folds_positivos": 1
+   },
+   {
+    "variable": "rainfall_prev",
+    "caida": -0.00035818957339840696,
+    "desvio": 0.02359078031293234,
+    "folds_positivos": 2
+   },
+   {
+    "variable": "team_name",
+    "caida": -0.0018218384984197236,
+    "desvio": 0.0014445682749010045,
+    "folds_positivos": 1
+   },
+   {
+    "variable": "circuit_short_name",
+    "caida": -0.0026643253685607413,
+    "desvio": 0.014629852430993984,
+    "folds_positivos": 2
+   },
+   {
+    "variable": "field_medium_prev",
+    "caida": -0.007974500046610988,
+    "desvio": 0.016229845497683543,
+    "folds_positivos": 2
+   },
+   {
+    "variable": "tyre_age_prev",
+    "caida": -0.008815388887443024,
+    "desvio": 0.013795873738599949,
+    "folds_positivos": 2
+   }
+  ]
+ },
+ "_meta": {
+  "segundos": 698
+ }
+}
