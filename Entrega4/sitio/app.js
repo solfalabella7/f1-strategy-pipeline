@@ -94,9 +94,9 @@ function rellenoUmbral() {
 
 // ------------------------------------------------------------------ tallo
 async function tallo() {
-  await Promise.all([dibujar("g-datos", "datos"), dibujar("g-hallazgo", "hallazgo"), dibujar("g-modelo", "modelo")]);
+  await Promise.all([dibujar("g-datos", "datos"), dibujar("g-hallazgo", "hallazgo"), dibujar("g-h1", "h1"), dibujar("g-modelo", "modelo")]);
   const graficoPorClave = {
-    "g-h1": "h1", "g-familias-pit": "familias_pit", "g-familias-comp": "familias_comp", "g-umbral": "umbral",
+    "g-familias-pit": "familias_pit", "g-familias-comp": "familias_comp", "g-umbral": "umbral",
     "g-matriz": "matriz", "g-imp-pit": "imp_pit", "g-imp-comp": "imp_comp", "g-pr": "pr",
     "g-distancias": "distancias", "g-mdi-pit": "mdi_pit", "g-mdi-comp": "mdi_comp",
   };
