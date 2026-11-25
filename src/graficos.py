@@ -113,7 +113,22 @@ def grafico_datos(paradas_vuelta: pd.DataFrame, carreras: pd.DataFrame):
         order=alt.Order("paradas:Q", sort="descending"),
         tooltip=[alt.Tooltip("nombre:N", title="Carrera"), alt.Tooltip("lap_number:Q", title="Vuelta"),
                  alt.Tooltip("paradas:Q", title="Pilotos que paran"), alt.Tooltip("contexto:N", title="Contexto")])
-    return config((base + puntos).properties(width="container", height=alt.Step(13)))
+    return config((base + puntos).properties(
+        title=alt.TitleParams(
+            text="Paradas por vuelta en cada carrera",
+            subtitle="El tamaño del círculo representa la cantidad de pilotos que paran",
+            anchor="start",
+            color=TINTA,
+            subtitleColor=TINTA_2,
+            subtitleFontSize=12,
+            subtitlePadding=8,
+            font=FUENTE,
+            fontSize=14,
+            fontWeight=700,
+        ),
+        width="container",
+        height=alt.Step(13),
+    ))
 
 
 # --------------------------------------------------------------------------
@@ -141,7 +156,22 @@ def grafico_hallazgo(h4: pd.DataFrame):
                  alt.Tooltip("paradas:Q", title="Paradas en seco del grupo", format=",d")])
     etiquetas = alt.Chart(h4).mark_text(dy=-17, fontSize=12, fontWeight=600, color=TINTA).encode(
         y=y, x=x, text=alt.Text("pct:Q", format=".0%"))
-    return config((linea + puntos + etiquetas).properties(width="container", height=210))
+    return config((linea + puntos + etiquetas).properties(
+        title=alt.TitleParams(
+            text="Compuesto montado con y sin safety car",
+            subtitle="Porcentaje de paradas en seco",
+            anchor="start",
+            color=TINTA,
+            subtitleColor=TINTA_2,
+            subtitleFontSize=12,
+            subtitlePadding=8,
+            font=FUENTE,
+            fontSize=14,
+            fontWeight=700,
+        ),
+        width="container",
+        height=210,
+    ))
 
 
 def grafico_h1(hist: pd.DataFrame):
@@ -187,7 +217,22 @@ def grafico_modelo(por_contexto: pd.DataFrame):
         align="left", dx=8, fontSize=13, fontWeight=600, color=TINTA).encode(y=y, x="pct:Q", text="rotulo:N")
     dentro = alt.Chart(por_contexto).transform_filter("datum.pct >= 0.45").mark_text(
         align="right", dx=-10, fontSize=13, fontWeight=600, color=TEXTO_INVERSO).encode(y=y, x="pct:Q", text="rotulo:N")
-    return config((barras + fuera + dentro).properties(width="container", height=170))
+    return config((barras + fuera + dentro).properties(
+        title=alt.TitleParams(
+            text="Paradas reales anticipadas por el modelo",
+            subtitle="Porcentaje con alarma en la vuelta exacta",
+            anchor="start",
+            color=TINTA,
+            subtitleColor=TINTA_2,
+            subtitleFontSize=12,
+            subtitlePadding=8,
+            font=FUENTE,
+            fontSize=14,
+            fontWeight=700,
+        ),
+        width="container",
+        height=170,
+    ))
 
 
 def grafico_matriz(matriz: pd.DataFrame):
@@ -217,7 +262,12 @@ def grafico_familias(tabla: pd.DataFrame, titulo_x: str, titulo: str):
         tooltip=[alt.Tooltip("modelo:N", title="Modelo"), alt.Tooltip("f1_validacion:Q", title="Media", format=".3f"),
                  alt.Tooltip("desvio:Q", title="Desvío", format=".3f"),
                  alt.Tooltip("f1_entrenamiento:Q", title="F1 en entrenamiento", format=".3f")])
-    return config((barra + punto).transform_calculate(
+    etiqueta = alt.Chart(tabla).mark_text(dx=8, align="left", fontSize=11, color=TINTA).encode(
+        y=y,
+        x=alt.X("f1_validacion:Q", scale=escala),
+        text=alt.Text("f1_validacion:Q", format=".3f"),
+    )
+    return config((barra + punto + etiqueta).transform_calculate(
         lo="datum.f1_validacion - datum.desvio", hi="datum.f1_validacion + datum.desvio"
     ).properties(
         title=alt.TitleParams(text=titulo, anchor="start", color=TINTA, font=FUENTE, fontSize=14, fontWeight=700),
@@ -295,7 +345,22 @@ def grafico_panorama(umbral: float):
         order=alt.Order("resultado:N", sort="ascending"),
         tooltip=[alt.Tooltip("carrera:N", title="Carrera"), alt.Tooltip("resultado:N", title="Resultado"),
                  alt.Tooltip("count():Q", title="Paradas")])
-    return config(barras.add_params(p_u, p_temp, p_ctx).properties(width="container", height=alt.Step(15)))
+    return config(barras.add_params(p_u, p_temp, p_ctx).properties(
+        title=alt.TitleParams(
+            text="Paradas reales por carrera",
+            subtitle="Cian: el modelo encendió la alarma; gris: no la encendió",
+            anchor="start",
+            color=TINTA,
+            subtitleColor=TINTA_2,
+            subtitleFontSize=12,
+            subtitlePadding=8,
+            font=FUENTE,
+            fontSize=14,
+            fontWeight=700,
+        ),
+        width="container",
+        height=alt.Step(15),
+    ))
 
 
 def grafico_carrera(umbral: float):
@@ -349,8 +414,15 @@ def grafico_trayectoria(umbral: float):
         tooltip=[alt.Tooltip("vuelta:Q", title="Vuelta con safety car")])
     linea = base.mark_line(color=MODELO, strokeWidth=2).encode(
         x=x, y=alt.Y("puntaje:Q", title="Puntaje de parada", scale=alt.Scale(domain=[0, 1])))
-    regla =base.mark_rule(strokeDash=[5, 4], color=TINTA_2, strokeWidth=1.2).encode(y="u:Q").transform_aggregate(
+    regla = base.mark_rule(strokeDash=[5, 4], color=TINTA_2, strokeWidth=1.2).encode(y="u:Q").transform_aggregate(
         n="count()").transform_calculate(u="umbral")
+    etiqueta_umbral = base.mark_text(
+        align="left", dx=6, dy=-7, fontSize=11, color=TINTA_2
+    ).encode(
+        x=alt.value(0),
+        y=alt.Y("umbral_texto:Q", scale=alt.Scale(domain=[0, 1])),
+        text=alt.value("Umbral"),
+    ).transform_calculate(umbral_texto="umbral")
     paradas = base.transform_filter("datum.para").mark_point(filled=True, size=120, stroke=SUPERFICIE, strokeWidth=1.5,
                                                               opacity=1).encode(
         x=x, y="puntaje:Q", color=alt.Color("objetivo:N", scale=ESCALA_COMPUESTO, title="Parada real"),
@@ -366,7 +438,7 @@ def grafico_trayectoria(umbral: float):
     linea_sel = actual.mark_rule(color=TINTA, strokeWidth=1.5, strokeDash=[2, 2]).encode(x=x)
     punto_sel = actual.mark_point(size=170, shape="diamond", filled=True, color=TINTA, stroke=SUPERFICIE,
                                   strokeWidth=1.5, opacity=1).encode(x=x, y="puntaje:Q")
-    return config((sc + linea + regla + paradas + puntos + linea_sel + punto_sel).add_params(p_u, p_v)
+    return config((sc + linea + regla + etiqueta_umbral + paradas + puntos + linea_sel + punto_sel).add_params(p_u, p_v)
                   .properties(width="container", height=180))
 
 
@@ -374,7 +446,7 @@ def grafico_probabilidades(nombre_datos: str):
     """Probabilidad de cada compuesto según el modelo de compuesto."""
     y = alt.Y("compuesto:N", sort=ORDEN, title=None, axis=alt.Axis(ticks=False, domain=False, labelFontWeight=600))
     barras = alt.Chart(alt.NamedData(nombre_datos)).mark_bar(height=14, cornerRadiusEnd=3).encode(
-        y=y, x=alt.X("p:Q", title=None, scale=alt.Scale(domain=[0, 1]), axis=alt.Axis(format="%", values=[0, .5, 1])),
+        y=y, x=alt.X("p:Q", title="Probabilidad propuesta", scale=alt.Scale(domain=[0, 1]), axis=alt.Axis(format="%", values=[0, .5, 1])),
         color=alt.Color("compuesto:N", scale=ESCALA_COMPUESTO, legend=None),
         tooltip=[alt.Tooltip("compuesto:N", title="Compuesto"), alt.Tooltip("p:Q", title="Probabilidad", format=".1%")])
     texto = alt.Chart(alt.NamedData(nombre_datos)).mark_text(align="left", dx=6, fontSize=12, fontWeight=600,
@@ -388,7 +460,7 @@ def grafico_puntaje(umbral: float):
     p_u = _p_umbral(umbral)
     base = alt.Chart(alt.NamedData("puntaje"))
     fondo = base.mark_bar(color=FONDO_BARRA, height=22, cornerRadius=4).encode(
-        x=alt.X("uno:Q", scale=alt.Scale(domain=[0, 1]), title=None, axis=alt.Axis(format=".2f", values=[0, .25, .5, .75, 1])),
+        x=alt.X("uno:Q", scale=alt.Scale(domain=[0, 1]), title="Puntaje de parada (0 a 1)", axis=alt.Axis(format=".2f", values=[0, .25, .5, .75, 1])),
     ).transform_calculate(uno="1")
     barra = base.mark_bar(height=22, cornerRadius=4).encode(
         x="p:Q", color=alt.condition("datum.p >= umbral", alt.value(MODELO), alt.value(GRIS_MEDIO)),

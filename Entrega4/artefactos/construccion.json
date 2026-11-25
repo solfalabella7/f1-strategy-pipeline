@@ -1,5 +1,5 @@
 {
- "fecha_construccion": "2026-11-25T16:34:09",
+ "fecha_construccion": "2026-11-25T17:02:37",
  "versiones": {
   "python": "3.12.10",
   "scikit-learn": "1.6.1",
@@ -134,16 +134,12 @@
  ],
  "paridad_navegador": {
   "parada": {
-   "verificado": true,
-   "filas": 69472,
-   "max_diferencia": 1.5543122344752192e-15,
-   "misma_clase": 1.0
+   "verificado": false,
+   "motivo": "omitido con --sin-node"
   },
   "compuesto": {
-   "verificado": true,
-   "filas": 69472,
-   "max_diferencia": 4.440892098500626e-16,
-   "misma_clase": 1.0
+   "verificado": false,
+   "motivo": "omitido con --sin-node"
   }
  },
  "metricas_test": {
