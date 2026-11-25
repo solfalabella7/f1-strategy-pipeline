@@ -172,8 +172,8 @@
       <h4>Ajuste del modelo elegido</h4>
       <p>Grilla de profundidad (8, 12, 16) × hoja mínima (10, 25, 60). Gana profundidad 12 y hoja 10 en los dos pasos: F1 de validación {{ T.cv_pit }} ± {{ T.cv_pit_sd }} en parada y {{ T.cv_comp }} ± {{ T.cv_comp_sd }} en neumático. El bosque memoriza parte del entrenamiento (F1 de entrenamiento {{ T.cv_pit_tr }} y {{ T.cv_comp_tr }}); por eso se informa siempre la validación. Sin pesos de clase el bosque de parada da {{ T.rf_sin_pesos }}: nunca predice parada. La logística ajustada llega a {{ T.log_pit }} (C = {{ T.log_pit_c }}) y {{ T.log_comp }} (C = {{ T.log_comp_c }}).</p>
       <p><strong>Umbral.</strong> El puntaje del bosque no es una probabilidad calibrada: 0,475 no significa «47,5 % de probabilidad de parada». Es el corte para encender la alarma. Con las predicciones fuera de pedazo de 2023–2024 se elige el umbral de máximo F1 (ante empate, el más alto): <strong>{{ T.umbral }}</strong>, con F1 {{ T.u_f1 }}, precisión {{ T.u_prec }} y recall {{ T.u_rec }}. La curva es casi plana: con 0,55 el F1 es {{ T.u055_f1 }}, con más precisión ({{ T.u055_prec }}) y menos recall ({{ T.u055_rec }}). {% if T.f2.coincide %}La regla F2 de la corrección elige el mismo umbral.{% else %}La regla F2 de la corrección elige {{ T.f2.umbral }} en este entorno (ver «Qué corregimos»).{% endif %}</p>
-      <figure class="grafico grafico-chico" id="g-pr" aria-label="Curva precisión–recall con umbrales"></figure>
       <p class="nota">Cada punto es un umbral (rótulo). Bajar el umbral mueve el punto a la derecha (más paradas anticipadas) y hacia abajo (más falsas alarmas por cada acierto). La línea punteada es el piso: la precisión de «siempre parar», igual a la proporción de vueltas con parada en 2023–2024 ({{ T.prev_train }}).</p>
+      <figure class="grafico grafico-chico" id="g-pr" aria-label="Curva precisión–recall con umbrales"></figure>
       <div class="tabla-envoltura">
       <table class="tabla">
         <thead><tr><th>Umbral (2025, descriptivo)</th><th class="n">Paradas con alarma</th><th class="n">Sin alarma</th><th class="n">Falsas alarmas</th><th class="n">Recall</th><th class="n">Precisión</th></tr></thead>
@@ -210,8 +210,8 @@
       <p><strong>Accuracy</strong> es la proporción de predicciones correctas entre todos los casos. Para detectar paradas puede engañar: solo el {{ T.pct_paradas }} de las vueltas tiene parada, así que un modelo que nunca alerta igual parecería acertar mucho. En la matriz, VP son paradas detectadas, FN paradas que se escaparon y FP falsas alarmas (en esta métrica, alarmas en vueltas sin parada exacta). Sistema completo: {{ T.sis_ambas }} de {{ T.sis_paradas }} paradas con parada y neumático correctos ({{ T.sis_pct }}); entre las paradas detectadas el neumático es correcto en el {{ T.sis_comp_det }} (con «siempre HARD» serían {{ T.sis_hard }}).</p>
 
       <h4>Análisis de errores</h4>
-      <figure class="grafico grafico-chico" id="g-distancias" aria-label="Falsas alarmas por distancia a la próxima parada"></figure>
       <p><strong>Las falsas alarmas no son al azar.</strong> El {{ T.fp_13_pct }} llega 1 a 3 vueltas antes de una parada real y el {{ T.fp_410_pct }}, 4 a 10 vueltas antes. El {{ T.fp_sin_pct }} restante no tiene parada en las 10 vueltas siguientes; de esas, en el {{ T.fp_no_vuelve }} el piloto ya no vuelve a parar (stints finales largos). Ejemplo: {{ T.ejemplo.piloto }} en {{ T.ejemplo.carrera }} 2025, con la alarma prendida desde la vuelta {{ T.ejemplo.vuelta }} y la parada {{ T.ejemplo.faltan|int }} vueltas después.</p>
+      <figure class="grafico grafico-chico" id="g-distancias" aria-label="Falsas alarmas por distancia a la próxima parada"></figure>
       <div class="tabla-envoltura">
       <table class="tabla">
         <thead><tr><th>Paradas de 2025</th><th class="n">Sin alarma (no anticipadas)</th><th class="n">Con alarma (anticipadas)</th></tr></thead>
@@ -257,13 +257,13 @@
     <div class="destacado"><dt>Vueltas que terminan en boxes</dt><dd>{{ T.pct_paradas }}</dd></div>
     <div><dt>Carreras · 2023–2025</dt><dd data-contar="{{ T.carreras_validas }}">{{ T.carreras_validas }}</dd></div>
   </dl>
-  <div class="pantalla" data-etiqueta="TELEMETRÍA · PARADAS POR VUELTA Y CARRERA">
-    <figure class="grafico grafico-alto" id="g-datos" aria-label="Paradas por vuelta en cada carrera"></figure>
-  </div>
   <div class="que-mirar">
     <h3>Qué mirar</h3>
     <p>La mayoría de los círculos son chicos y grises: paradas de uno o dos pilotos, planificadas, en seco. Los círculos grandes —diez o más autos que entran juntos— son ámbar (safety car en pista) o azules (cambio a neumáticos de lluvia). Esa diferencia es la que va a explicar dónde acierta y dónde falla el modelo.</p>
     <p>Que las paradas sean tan pocas obliga a no medir con <em>accuracy</em>: un modelo que nunca dice «parar» acertaría el {{ T.test_nunca_acc }} de las vueltas de 2025 sin servir para nada.</p>
+  </div>
+  <div class="pantalla" data-etiqueta="TELEMETRÍA · PARADAS POR VUELTA Y CARRERA">
+    <figure class="grafico grafico-alto" id="g-datos" aria-label="Paradas por vuelta en cada carrera"></figure>
   </div>
   <ol class="pipeline" aria-label="Del dato crudo al modelo">
     <li><span class="mono">FUENTE</span><b>OpenF1</b><small>API pública v1</small></li>
@@ -327,13 +327,13 @@
     <h2>Con safety car los equipos cambian de plan: en seco, el HARD baja del {{ T.h4_sin_hard }} al {{ T.h4_con_hard }} de las paradas</h2>
     <p class="bajada">Neumático montado en las paradas a compuestos de seco, según haya o no safety car en pista ({{ T.h4_n_con }} paradas con safety car y {{ T.h4_n_sin }} sin).</p>
   </div>
-  <div class="pantalla pantalla-clara" data-etiqueta="COMPUESTO MONTADO · PARADAS EN SECO">
-    <figure class="grafico" id="g-hallazgo" aria-label="Porcentaje de cada compuesto con y sin safety car"></figure>
-  </div>
   <div class="que-mirar">
     <h3>Qué mirar</h3>
     <p>La distancia entre el círculo y el rombo de cada fila. Con safety car la parada cuesta menos tiempo y se aprovecha para poner un neumático para menos vueltas: crece el SOFT ({{ T.h4_sin_soft }} → {{ T.h4_con_soft }}) y el MEDIUM ({{ T.h4_sin_med }} → {{ T.h4_con_med }}), y cae el HARD. Son paradas que responden a algo que pasa en la carrera, no a un plan escrito antes de largar.</p>
     <p>Es una asociación, no una causa. Y como el safety car quedó fuera del modelo (devolución de la Entrega 2), es justamente la situación en la que el modelo no tiene con qué anticipar.</p>
+  </div>
+  <div class="pantalla pantalla-clara" data-etiqueta="COMPUESTO MONTADO · PARADAS EN SECO">
+    <figure class="grafico" id="g-hallazgo" aria-label="Porcentaje de cada compuesto con y sin safety car"></figure>
   </div>
 
   <div class="como-cuerpo h1-fuera">
@@ -378,13 +378,13 @@
     <h2>El modelo anticipa 2 de cada 3 paradas en seco, pero casi ninguna de las que provocan el safety car o la lluvia</h2>
     <p class="bajada">Paradas reales de 2025 con la alarma encendida en esa misma vuelta (puntaje del modelo ≥ {{ T.umbral }}), según el contexto de la parada.</p>
   </div>
-  <div class="pantalla" data-etiqueta="TEST 2025 · PARADAS CON ALARMA EN ESA VUELTA">
-    <figure class="grafico" id="g-modelo" aria-label="Porcentaje de paradas anticipadas por contexto"></figure>
-  </div>
   <div class="que-mirar">
     <h3>Qué mirar</h3>
     <p>Las tres barras usan el mismo modelo, el mismo umbral y la misma temporada. Cuando la parada es parte del plan —un neumático que se gasta— el modelo la ve venir: la alarma se prende varias vueltas antes y se apaga al parar. Cuando la parada es una reacción a algo que pasa en la pista, llega sin aviso: con safety car anticipa {{ T.sc_a }} de {{ T.sc_n }} y a neumáticos de lluvia {{ T.ll_a }} de {{ T.ll_n }}.</p>
     <p>El precio de vigilar la ventana son las falsas alarmas: de las {{ T.test_alarmas }} vueltas con alarma en 2025, solo el {{ T.test_prec }} es una parada en esa vuelta exacta. Sirve como aviso de «se abrió la ventana», no como orden de «entrá ahora».</p>
+  </div>
+  <div class="pantalla" data-etiqueta="TEST 2025 · PARADAS CON ALARMA EN ESA VUELTA">
+    <figure class="grafico" id="g-modelo" aria-label="Porcentaje de paradas anticipadas por contexto"></figure>
   </div>
   <ol class="flujo" aria-label="Cómo decide el modelo en cada vuelta">
     <li><span class="mono">ENTRADA</span><b>La vuelta que empieza</b><small>piloto, carrera, número de vuelta, circuito y equipo</small></li>
@@ -550,8 +550,8 @@
         <dl class="situacion" id="s-situacion"></dl>
         <h4 class="sim-sub">Puntaje de parada de este piloto, vuelta a vuelta</h4>
         <p class="panel-ayuda">Línea cian: puntaje · trazos: umbral {{ T.umbral }} · círculos: paradas reales · rombo: la vuelta elegida · franjas ámbar: safety car. Hacé clic en la línea para saltar a una vuelta.</p>
-        <figure class="grafico" id="g-sim-tray" aria-label="Puntaje de parada vuelta a vuelta"></figure>
         <p class="partir-nota">La predicción que ves es la de un modelo que <strong>no vio esta carrera</strong>: en 2025, el modelo final; en 2023–2024, el de la validación cruzada que la dejó afuera. El piloto no es una variable del modelo; sí lo son su equipo y lo que pasó en sus vueltas anteriores.</p>
+        <figure class="grafico" id="g-sim-tray" aria-label="Puntaje de parada vuelta a vuelta"></figure>
       </div>
 
       <!-- MODO 2 · un escenario propio -->

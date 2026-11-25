@@ -172,8 +172,8 @@
       <h4>Ajuste del modelo elegido</h4>
       <p>Grilla de profundidad (8, 12, 16) × hoja mínima (10, 25, 60). Gana profundidad 12 y hoja 10 en los dos pasos: F1 de validación 0,146 ± 0,030 en parada y 0,561 ± 0,064 en neumático. El bosque memoriza parte del entrenamiento (F1 de entrenamiento 0,318 y 0,836); por eso se informa siempre la validación. Sin pesos de clase el bosque de parada da 0,000: nunca predice parada. La logística ajustada llega a 0,110 (C = 0,001) y 0,514 (C = 0,0003).</p>
       <p><strong>Umbral.</strong> El puntaje del bosque no es una probabilidad calibrada: 0,475 no significa «47,5 % de probabilidad de parada». Es el corte para encender la alarma. Con las predicciones fuera de pedazo de 2023–2024 se elige el umbral de máximo F1 (ante empate, el más alto): <strong>0,475</strong>, con F1 0,1403, precisión 8,4 % y recall 43,2 %. La curva es casi plana: con 0,55 el F1 es 0,1402, con más precisión (9,3 %) y menos recall (28,7 %). La regla F2 de la corrección elige 0,400 en este entorno (ver «Qué corregimos»).</p>
-      <figure class="grafico grafico-chico" id="g-pr" aria-label="Curva precisión–recall con umbrales"></figure>
       <p class="nota">Cada punto es un umbral (rótulo). Bajar el umbral mueve el punto a la derecha (más paradas anticipadas) y hacia abajo (más falsas alarmas por cada acierto). La línea punteada es el piso: la precisión de «siempre parar», igual a la proporción de vueltas con parada en 2023–2024 (3,3 %).</p>
+      <figure class="grafico grafico-chico" id="g-pr" aria-label="Curva precisión–recall con umbrales"></figure>
       <div class="tabla-envoltura">
       <table class="tabla">
         <thead><tr><th>Umbral (2025, descriptivo)</th><th class="n">Paradas con alarma</th><th class="n">Sin alarma</th><th class="n">Falsas alarmas</th><th class="n">Recall</th><th class="n">Precisión</th></tr></thead>
@@ -220,8 +220,8 @@
       <p><strong>Accuracy</strong> es la proporción de predicciones correctas entre todos los casos. Para detectar paradas puede engañar: solo el 3,3 % de las vueltas tiene parada, así que un modelo que nunca alerta igual parecería acertar mucho. En la matriz, VP son paradas detectadas, FN paradas que se escaparon y FP falsas alarmas (en esta métrica, alarmas en vueltas sin parada exacta). Sistema completo: 342 de 802 paradas con parada y neumático correctos (42,6 %); entre las paradas detectadas el neumático es correcto en el 77,7 % (con «siempre HARD» serían 228).</p>
 
       <h4>Análisis de errores</h4>
-      <figure class="grafico grafico-chico" id="g-distancias" aria-label="Falsas alarmas por distancia a la próxima parada"></figure>
       <p><strong>Las falsas alarmas no son al azar.</strong> El 21,6 % llega 1 a 3 vueltas antes de una parada real y el 35,3 %, 4 a 10 vueltas antes. El 43,1 % restante no tiene parada en las 10 vueltas siguientes; de esas, en el 40,6 % el piloto ya no vuelve a parar (stints finales largos). Ejemplo: Esteban OCON en Canadá 2025, con la alarma prendida desde la vuelta 21 y la parada 36 vueltas después.</p>
+      <figure class="grafico grafico-chico" id="g-distancias" aria-label="Falsas alarmas por distancia a la próxima parada"></figure>
       <div class="tabla-envoltura">
       <table class="tabla">
         <thead><tr><th>Paradas de 2025</th><th class="n">Sin alarma (no anticipadas)</th><th class="n">Con alarma (anticipadas)</th></tr></thead>
@@ -267,13 +267,13 @@
     <div class="destacado"><dt>Vueltas que terminan en boxes</dt><dd>3,3 %</dd></div>
     <div><dt>Carreras · 2023–2025</dt><dd data-contar="64">64</dd></div>
   </dl>
-  <div class="pantalla" data-etiqueta="TELEMETRÍA · PARADAS POR VUELTA Y CARRERA">
-    <figure class="grafico grafico-alto" id="g-datos" aria-label="Paradas por vuelta en cada carrera"></figure>
-  </div>
   <div class="que-mirar">
     <h3>Qué mirar</h3>
     <p>La mayoría de los círculos son chicos y grises: paradas de uno o dos pilotos, planificadas, en seco. Los círculos grandes —diez o más autos que entran juntos— son ámbar (safety car en pista) o azules (cambio a neumáticos de lluvia). Esa diferencia es la que va a explicar dónde acierta y dónde falla el modelo.</p>
     <p>Que las paradas sean tan pocas obliga a no medir con <em>accuracy</em>: un modelo que nunca dice «parar» acertaría el 96,9 % de las vueltas de 2025 sin servir para nada.</p>
+  </div>
+  <div class="pantalla" data-etiqueta="TELEMETRÍA · PARADAS POR VUELTA Y CARRERA">
+    <figure class="grafico grafico-alto" id="g-datos" aria-label="Paradas por vuelta en cada carrera"></figure>
   </div>
   <ol class="pipeline" aria-label="Del dato crudo al modelo">
     <li><span class="mono">FUENTE</span><b>OpenF1</b><small>API pública v1</small></li>
@@ -337,13 +337,13 @@
     <h2>Con safety car los equipos cambian de plan: en seco, el HARD baja del 54 % al 36 % de las paradas</h2>
     <p class="bajada">Neumático montado en las paradas a compuestos de seco, según haya o no safety car en pista (194 paradas con safety car y 1.912 sin).</p>
   </div>
-  <div class="pantalla pantalla-clara" data-etiqueta="COMPUESTO MONTADO · PARADAS EN SECO">
-    <figure class="grafico" id="g-hallazgo" aria-label="Porcentaje de cada compuesto con y sin safety car"></figure>
-  </div>
   <div class="que-mirar">
     <h3>Qué mirar</h3>
     <p>La distancia entre el círculo y el rombo de cada fila. Con safety car la parada cuesta menos tiempo y se aprovecha para poner un neumático para menos vueltas: crece el SOFT (15 % → 26 %) y el MEDIUM (30 % → 38 %), y cae el HARD. Son paradas que responden a algo que pasa en la carrera, no a un plan escrito antes de largar.</p>
     <p>Es una asociación, no una causa. Y como el safety car quedó fuera del modelo (devolución de la Entrega 2), es justamente la situación en la que el modelo no tiene con qué anticipar.</p>
+  </div>
+  <div class="pantalla pantalla-clara" data-etiqueta="COMPUESTO MONTADO · PARADAS EN SECO">
+    <figure class="grafico" id="g-hallazgo" aria-label="Porcentaje de cada compuesto con y sin safety car"></figure>
   </div>
 
   <div class="como-cuerpo h1-fuera">
@@ -388,13 +388,13 @@
     <h2>El modelo anticipa 2 de cada 3 paradas en seco, pero casi ninguna de las que provocan el safety car o la lluvia</h2>
     <p class="bajada">Paradas reales de 2025 con la alarma encendida en esa misma vuelta (puntaje del modelo ≥ 0,475), según el contexto de la parada.</p>
   </div>
-  <div class="pantalla" data-etiqueta="TEST 2025 · PARADAS CON ALARMA EN ESA VUELTA">
-    <figure class="grafico" id="g-modelo" aria-label="Porcentaje de paradas anticipadas por contexto"></figure>
-  </div>
   <div class="que-mirar">
     <h3>Qué mirar</h3>
     <p>Las tres barras usan el mismo modelo, el mismo umbral y la misma temporada. Cuando la parada es parte del plan —un neumático que se gasta— el modelo la ve venir: la alarma se prende varias vueltas antes y se apaga al parar. Cuando la parada es una reacción a algo que pasa en la pista, llega sin aviso: con safety car anticipa 5 de 106 y a neumáticos de lluvia 2 de 33.</p>
     <p>El precio de vigilar la ventana son las falsas alarmas: de las 6.077 vueltas con alarma en 2025, solo el 7,2 % es una parada en esa vuelta exacta. Sirve como aviso de «se abrió la ventana», no como orden de «entrá ahora».</p>
+  </div>
+  <div class="pantalla" data-etiqueta="TEST 2025 · PARADAS CON ALARMA EN ESA VUELTA">
+    <figure class="grafico" id="g-modelo" aria-label="Porcentaje de paradas anticipadas por contexto"></figure>
   </div>
   <ol class="flujo" aria-label="Cómo decide el modelo en cada vuelta">
     <li><span class="mono">ENTRADA</span><b>La vuelta que empieza</b><small>piloto, carrera, número de vuelta, circuito y equipo</small></li>
@@ -560,8 +560,8 @@
         <dl class="situacion" id="s-situacion"></dl>
         <h4 class="sim-sub">Puntaje de parada de este piloto, vuelta a vuelta</h4>
         <p class="panel-ayuda">Línea cian: puntaje · trazos: umbral 0,475 · círculos: paradas reales · rombo: la vuelta elegida · franjas ámbar: safety car. Hacé clic en la línea para saltar a una vuelta.</p>
-        <figure class="grafico" id="g-sim-tray" aria-label="Puntaje de parada vuelta a vuelta"></figure>
         <p class="partir-nota">La predicción que ves es la de un modelo que <strong>no vio esta carrera</strong>: en 2025, el modelo final; en 2023–2024, el de la validación cruzada que la dejó afuera. El piloto no es una variable del modelo; sí lo son su equipo y lo que pasó en sus vueltas anteriores.</p>
+        <figure class="grafico" id="g-sim-tray" aria-label="Puntaje de parada vuelta a vuelta"></figure>
       </div>
 
       <!-- MODO 2 · un escenario propio -->
