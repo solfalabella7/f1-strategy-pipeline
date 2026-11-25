@@ -139,7 +139,7 @@
       <div class="dos-col">
         <div>
           <h4>Métrica elegida</h4>
-          <p><strong>Parada: F1 de la clase «para».</strong> Solo el {{ T.pct_paradas }} de las vueltas tiene parada; combina precisión (no parar de más) y recall (no perderse paradas). <strong>Neumático: F1 macro</strong>, para que SOFT ({{ T.clases_pct.SOFT }}) y LLUVIA ({{ T.clases_pct.LLUVIA }}) pesen lo mismo que HARD ({{ T.clases_pct.HARD }}).</p>
+          <p><strong>Parada: F1 de la clase «para».</strong> Solo el {{ T.pct_paradas }} de las vueltas tiene parada. La precisión responde «de las vueltas con alarma, ¿qué proporción tiene una parada en esa misma vuelta?»; el recall, «de las paradas reales, ¿qué proporción detectamos?». F1 resume ambas: baja si una de las dos es baja. Se mide por vuelta exacta; la anticipación en una ventana de vueltas se informa aparte. <strong>Neumático: F1 macro</strong>, promedio del F1 de cada compuesto con el mismo peso, para que SOFT ({{ T.clases_pct.SOFT }}) y LLUVIA ({{ T.clases_pct.LLUVIA }}) cuenten tanto como HARD ({{ T.clases_pct.HARD }}).</p>
         </div>
         <div>
           <h4>Piso de comparación</h4>
@@ -151,6 +151,7 @@
       <p>2023–2024 se reparte en <strong>4 pedazos de 10 carreras enteras</strong>, estratificando las carreras por «tuvo paradas a lluvia» para que cada pedazo tenga una de las 4 carreras con lluvia. Una carrera nunca queda de los dos lados: sus vueltas se parecen entre sí. Si se repartiera al azar por filas, el F1 subiría a {{ T.azar_pit }} (parada) y {{ T.azar_comp }} (neumático): ese salto es fuga, no mejor modelo. 2025 se consultó una sola vez al final, sin retocar nada. Aclaración honesta: versiones anteriores del grupo ya habían mirado 2025, así que no es un test virgen a nivel proyecto.</p>
 
       <h4>Comparación de modelos (media ± desvío en los 4 pedazos)</h4>
+      <p class="nota">La media resume el F1 en los pedazos de validación; el desvío muestra cuánto varió entre ellos. No es un margen de confianza. El F1 va de 0 a 1: más alto indica mejor equilibrio entre precisión y recall.</p>
       <div class="dos-col">
         <div>
           <p class="nota">Parada · F1 de la clase «para»</p>
@@ -167,7 +168,7 @@
 
       <h4>Ajuste del modelo elegido</h4>
       <p>Grilla de profundidad (8, 12, 16) × hoja mínima (10, 25, 60). Gana profundidad 12 y hoja 10 en los dos pasos: F1 de validación {{ T.cv_pit }} ± {{ T.cv_pit_sd }} en parada y {{ T.cv_comp }} ± {{ T.cv_comp_sd }} en neumático. El bosque memoriza parte del entrenamiento (F1 de entrenamiento {{ T.cv_pit_tr }} y {{ T.cv_comp_tr }}); por eso se informa siempre la validación. Sin pesos de clase el bosque de parada da {{ T.rf_sin_pesos }}: nunca predice parada. La logística ajustada llega a {{ T.log_pit }} (C = {{ T.log_pit_c }}) y {{ T.log_comp }} (C = {{ T.log_comp_c }}).</p>
-      <p><strong>Umbral.</strong> El puntaje del bosque no es una probabilidad calibrada. Con las predicciones fuera de pedazo de 2023–2024 se elige el umbral de máximo F1 (ante empate, el más alto): <strong>{{ T.umbral }}</strong>, con F1 {{ T.u_f1 }}, precisión {{ T.u_prec }} y recall {{ T.u_rec }}. La curva es casi plana: con 0,55 el F1 es {{ T.u055_f1 }}, con más precisión ({{ T.u055_prec }}) y menos recall ({{ T.u055_rec }}). {% if T.f2.coincide %}La regla F2 de la corrección elige el mismo umbral.{% else %}La regla F2 de la corrección elige {{ T.f2.umbral }} en este entorno (ver «Qué corregimos»).{% endif %}</p>
+      <p><strong>Umbral.</strong> El puntaje del bosque no es una probabilidad calibrada: 0,475 no significa «47,5 % de probabilidad de parada». Es el corte para encender la alarma. Con las predicciones fuera de pedazo de 2023–2024 se elige el umbral de máximo F1 (ante empate, el más alto): <strong>{{ T.umbral }}</strong>, con F1 {{ T.u_f1 }}, precisión {{ T.u_prec }} y recall {{ T.u_rec }}. La curva es casi plana: con 0,55 el F1 es {{ T.u055_f1 }}, con más precisión ({{ T.u055_prec }}) y menos recall ({{ T.u055_rec }}). {% if T.f2.coincide %}La regla F2 de la corrección elige el mismo umbral.{% else %}La regla F2 de la corrección elige {{ T.f2.umbral }} en este entorno (ver «Qué corregimos»).{% endif %}</p>
       <figure class="grafico grafico-chico" id="g-pr" aria-label="Curva precisión–recall con umbrales"></figure>
       <p class="nota">Cada punto es un umbral (rótulo). Bajar el umbral mueve el punto a la derecha (más paradas anticipadas) y hacia abajo (más falsas alarmas por cada acierto). La línea punteada es el piso: la precisión de «siempre parar», igual a la proporción de vueltas con parada en 2023–2024 ({{ T.prev_train }}).</p>
       <div class="tabla-envoltura">
@@ -203,7 +204,7 @@
         </table>
         </div>
       </div>
-      <p>Matriz de la parada: {{ T.test_vp }} paradas con alarma, {{ T.test_fn }} sin alarma y {{ T.test_fp }} falsas alarmas. Sistema completo: {{ T.sis_ambas }} de {{ T.sis_paradas }} paradas con parada y neumático correctos ({{ T.sis_pct }}); entre las paradas detectadas el neumático es correcto en el {{ T.sis_comp_det }} (con «siempre HARD» serían {{ T.sis_hard }}).</p>
+      <p><strong>Accuracy</strong> es la proporción de predicciones correctas entre todos los casos. Para detectar paradas puede engañar: solo el {{ T.pct_paradas }} de las vueltas tiene parada, así que un modelo que nunca alerta igual parecería acertar mucho. En la matriz, VP son paradas detectadas, FN paradas que se escaparon y FP falsas alarmas (en esta métrica, alarmas en vueltas sin parada exacta). Sistema completo: {{ T.sis_ambas }} de {{ T.sis_paradas }} paradas con parada y neumático correctos ({{ T.sis_pct }}); entre las paradas detectadas el neumático es correcto en el {{ T.sis_comp_det }} (con «siempre HARD» serían {{ T.sis_hard }}).</p>
 
       <h4>Análisis de errores</h4>
       <figure class="grafico grafico-chico" id="g-distancias" aria-label="Falsas alarmas por distancia a la próxima parada"></figure>
@@ -393,6 +394,28 @@
     <div><p class="mk-n">{{ T.comp_f1 }}</p><p>F1 macro del neumático en las paradas reales · «siempre HARD» da {{ T.comp_piso_f1 }}</p></div>
     <div><p class="mk-n">{{ T.sis_pct }}</p><p>de las paradas de 2025 con las dos decisiones bien: parar en esa vuelta y el neumático ({{ T.sis_ambas }} de {{ T.sis_paradas }})</p></div>
   </div>
+  <details class="como">
+    <summary><span>Glosario de métricas</span> Qué significa cada indicador y sus números</summary>
+    <div class="como-cuerpo">
+      <div class="tabla-envoltura">
+        <table class="tabla">
+          <thead><tr><th>Indicador</th><th>Cómo leerlo</th></tr></thead>
+          <tbody>
+            <tr><td>F1</td><td>Equilibra precisión y recall mediante su media armónica. Va de 0 a 1; más alto es mejor, pero no indica por sí solo cuántas alarmas hubo.</td></tr>
+            <tr><td>F2</td><td>Similar al F1, pero da más peso al recall; se usa al comparar la regla alternativa para elegir el umbral.</td></tr>
+            <tr><td>Precisión</td><td>De las vueltas con alarma, qué proporción tuvo una parada en esa misma vuelta.</td></tr>
+            <tr><td>Recall</td><td>De las paradas reales, qué proporción detectó el modelo.</td></tr>
+            <tr><td>F1 macro</td><td>Promedio del F1 de cada compuesto, dando el mismo peso a SOFT, MEDIUM, HARD y LLUVIA.</td></tr>
+            <tr><td>Accuracy</td><td>Proporción de aciertos entre todos los casos. Puede engañar cuando las clases están desbalanceadas, como en las paradas.</td></tr>
+            <tr><td>Puntaje y umbral</td><td>El puntaje de parada se compara con el umbral para activar la alarma; no es una probabilidad calibrada. Bajar el umbral suele producir más alarmas.</td></tr>
+            <tr><td>VP · FN · FP</td><td>Verdaderos positivos: paradas detectadas; falsos negativos: paradas omitidas; falsos positivos: alarmas sin parada en esa vuelta.</td></tr>
+            <tr><td>Media ± desvío</td><td>Media y variación del F1 entre pedazos de validación; el desvío no es un margen de confianza.</td></tr>
+            <tr><td>Racha de alarma</td><td>Vueltas consecutivas con alarma para un piloto. Se considera que termina en parada si esta ocurre durante la racha o hasta 3 vueltas después.</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </details>
 
 </section>
 

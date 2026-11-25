@@ -139,7 +139,7 @@
       <div class="dos-col">
         <div>
           <h4>Métrica elegida</h4>
-          <p><strong>Parada: F1 de la clase «para».</strong> Solo el 3,3 % de las vueltas tiene parada; combina precisión (no parar de más) y recall (no perderse paradas). <strong>Neumático: F1 macro</strong>, para que SOFT (14 %) y LLUVIA (10 %) pesen lo mismo que HARD (48 %).</p>
+          <p><strong>Parada: F1 de la clase «para».</strong> Solo el 3,3 % de las vueltas tiene parada. La precisión responde «de las vueltas con alarma, ¿qué proporción tiene una parada en esa misma vuelta?»; el recall, «de las paradas reales, ¿qué proporción detectamos?». F1 resume ambas: baja si una de las dos es baja. Se mide por vuelta exacta; la anticipación en una ventana de vueltas se informa aparte. <strong>Neumático: F1 macro</strong>, promedio del F1 de cada compuesto con el mismo peso, para que SOFT (14 %) y LLUVIA (10 %) cuenten tanto como HARD (48 %).</p>
         </div>
         <div>
           <h4>Piso de comparación</h4>
@@ -151,6 +151,7 @@
       <p>2023–2024 se reparte en <strong>4 pedazos de 10 carreras enteras</strong>, estratificando las carreras por «tuvo paradas a lluvia» para que cada pedazo tenga una de las 4 carreras con lluvia. Una carrera nunca queda de los dos lados: sus vueltas se parecen entre sí. Si se repartiera al azar por filas, el F1 subiría a 0,250 (parada) y 0,753 (neumático): ese salto es fuga, no mejor modelo. 2025 se consultó una sola vez al final, sin retocar nada. Aclaración honesta: versiones anteriores del grupo ya habían mirado 2025, así que no es un test virgen a nivel proyecto.</p>
 
       <h4>Comparación de modelos (media ± desvío en los 4 pedazos)</h4>
+      <p class="nota">La media resume el F1 en los pedazos de validación; el desvío muestra cuánto varió entre ellos. No es un margen de confianza. El F1 va de 0 a 1: más alto indica mejor equilibrio entre precisión y recall.</p>
       <div class="dos-col">
         <div>
           <p class="nota">Parada · F1 de la clase «para»</p>
@@ -167,7 +168,7 @@
 
       <h4>Ajuste del modelo elegido</h4>
       <p>Grilla de profundidad (8, 12, 16) × hoja mínima (10, 25, 60). Gana profundidad 12 y hoja 10 en los dos pasos: F1 de validación 0,146 ± 0,030 en parada y 0,561 ± 0,064 en neumático. El bosque memoriza parte del entrenamiento (F1 de entrenamiento 0,318 y 0,836); por eso se informa siempre la validación. Sin pesos de clase el bosque de parada da 0,000: nunca predice parada. La logística ajustada llega a 0,110 (C = 0,001) y 0,514 (C = 0,0003).</p>
-      <p><strong>Umbral.</strong> El puntaje del bosque no es una probabilidad calibrada. Con las predicciones fuera de pedazo de 2023–2024 se elige el umbral de máximo F1 (ante empate, el más alto): <strong>0,475</strong>, con F1 0,1403, precisión 8,4 % y recall 43,2 %. La curva es casi plana: con 0,55 el F1 es 0,1402, con más precisión (9,3 %) y menos recall (28,7 %). La regla F2 de la corrección elige 0,400 en este entorno (ver «Qué corregimos»).</p>
+      <p><strong>Umbral.</strong> El puntaje del bosque no es una probabilidad calibrada: 0,475 no significa «47,5 % de probabilidad de parada». Es el corte para encender la alarma. Con las predicciones fuera de pedazo de 2023–2024 se elige el umbral de máximo F1 (ante empate, el más alto): <strong>0,475</strong>, con F1 0,1403, precisión 8,4 % y recall 43,2 %. La curva es casi plana: con 0,55 el F1 es 0,1402, con más precisión (9,3 %) y menos recall (28,7 %). La regla F2 de la corrección elige 0,400 en este entorno (ver «Qué corregimos»).</p>
       <figure class="grafico grafico-chico" id="g-pr" aria-label="Curva precisión–recall con umbrales"></figure>
       <p class="nota">Cada punto es un umbral (rótulo). Bajar el umbral mueve el punto a la derecha (más paradas anticipadas) y hacia abajo (más falsas alarmas por cada acierto). La línea punteada es el piso: la precisión de «siempre parar», igual a la proporción de vueltas con parada en 2023–2024 (3,3 %).</p>
       <div class="tabla-envoltura">
@@ -213,7 +214,7 @@
         </table>
         </div>
       </div>
-      <p>Matriz de la parada: 440 paradas con alarma, 362 sin alarma y 5.637 falsas alarmas. Sistema completo: 342 de 802 paradas con parada y neumático correctos (42,6 %); entre las paradas detectadas el neumático es correcto en el 77,7 % (con «siempre HARD» serían 228).</p>
+      <p><strong>Accuracy</strong> es la proporción de predicciones correctas entre todos los casos. Para detectar paradas puede engañar: solo el 3,3 % de las vueltas tiene parada, así que un modelo que nunca alerta igual parecería acertar mucho. En la matriz, VP son paradas detectadas, FN paradas que se escaparon y FP falsas alarmas (en esta métrica, alarmas en vueltas sin parada exacta). Sistema completo: 342 de 802 paradas con parada y neumático correctos (42,6 %); entre las paradas detectadas el neumático es correcto en el 77,7 % (con «siempre HARD» serían 228).</p>
 
       <h4>Análisis de errores</h4>
       <figure class="grafico grafico-chico" id="g-distancias" aria-label="Falsas alarmas por distancia a la próxima parada"></figure>
@@ -403,6 +404,28 @@
     <div><p class="mk-n">0,638</p><p>F1 macro del neumático en las paradas reales · «siempre HARD» da 0,140</p></div>
     <div><p class="mk-n">42,6 %</p><p>de las paradas de 2025 con las dos decisiones bien: parar en esa vuelta y el neumático (342 de 802)</p></div>
   </div>
+  <details class="como">
+    <summary><span>Glosario de métricas</span> Qué significa cada indicador y sus números</summary>
+    <div class="como-cuerpo">
+      <div class="tabla-envoltura">
+        <table class="tabla">
+          <thead><tr><th>Indicador</th><th>Cómo leerlo</th></tr></thead>
+          <tbody>
+            <tr><td>F1</td><td>Equilibra precisión y recall mediante su media armónica. Va de 0 a 1; más alto es mejor, pero no indica por sí solo cuántas alarmas hubo.</td></tr>
+            <tr><td>F2</td><td>Similar al F1, pero da más peso al recall; se usa al comparar la regla alternativa para elegir el umbral.</td></tr>
+            <tr><td>Precisión</td><td>De las vueltas con alarma, qué proporción tuvo una parada en esa misma vuelta.</td></tr>
+            <tr><td>Recall</td><td>De las paradas reales, qué proporción detectó el modelo.</td></tr>
+            <tr><td>F1 macro</td><td>Promedio del F1 de cada compuesto, dando el mismo peso a SOFT, MEDIUM, HARD y LLUVIA.</td></tr>
+            <tr><td>Accuracy</td><td>Proporción de aciertos entre todos los casos. Puede engañar cuando las clases están desbalanceadas, como en las paradas.</td></tr>
+            <tr><td>Puntaje y umbral</td><td>El puntaje de parada se compara con el umbral para activar la alarma; no es una probabilidad calibrada. Bajar el umbral suele producir más alarmas.</td></tr>
+            <tr><td>VP · FN · FP</td><td>Verdaderos positivos: paradas detectadas; falsos negativos: paradas omitidas; falsos positivos: alarmas sin parada en esa vuelta.</td></tr>
+            <tr><td>Media ± desvío</td><td>Media y variación del F1 entre pedazos de validación; el desvío no es un margen de confianza.</td></tr>
+            <tr><td>Racha de alarma</td><td>Vueltas consecutivas con alarma para un piloto. Se considera que termina en parada si esta ocurre durante la racha o hasta 3 vueltas después.</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </details>
 
 </section>
 
