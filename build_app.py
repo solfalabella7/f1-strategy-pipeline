@@ -654,14 +654,22 @@ def main() -> None:
         "h1": g_h1,
         "modelo": G.grafico_modelo(ctx),
         "matriz": G.grafico_matriz(mat),
-        "familias_pit": G.grafico_familias(fam("pit", "Random forest"), "F1 «para»"),
-        "familias_comp": G.grafico_familias(fam("comp", "Random forest"), "F1 macro"),
+        "familias_pit": G.grafico_familias(
+            fam("pit", "Random forest"), "F1 «para»", "Anticipación de paradas"
+        ),
+        "familias_comp": G.grafico_familias(
+            fam("comp", "Random forest"), "F1 macro", "Predicción de compuesto"
+        ),
         "umbral": G.grafico_umbral(tabla_umbral, umbral),
         "imp_pit": G.grafico_importancia(
-            pd.DataFrame(sel["importancia"]["pit"]), "Caída del F1"
+            pd.DataFrame(sel["importancia"]["pit"]),
+            "Caída del F1",
+            "Variables más importantes para anticipar paradas",
         ),
         "imp_comp": G.grafico_importancia(
-            pd.DataFrame(sel["importancia"]["comp"]), "Caída del F1 macro"
+            pd.DataFrame(sel["importancia"]["comp"]),
+            "Caída del F1 macro",
+            "Variables más importantes para predecir el compuesto",
         ),
         "panorama": G.grafico_panorama(umbral),
         "carrera": G.grafico_carrera(umbral),
@@ -676,10 +684,14 @@ def main() -> None:
     graficos["pr"] = G.grafico_pr(tabla_umbral, umbral, float(yp.mean()))
     graficos["distancias"] = G.grafico_distancias(dist)
     graficos["mdi_pit"] = G.grafico_mdi(
-        pd.DataFrame(C["mdi"]["pit"]), "Importancia (MDI)"
+        pd.DataFrame(C["mdi"]["pit"]),
+        "Importancia (MDI)",
+        "Variables más importantes para anticipar paradas (MDI)",
     )
     graficos["mdi_comp"] = G.grafico_mdi(
-        pd.DataFrame(C["mdi"]["comp"]), "Importancia (MDI)"
+        pd.DataFrame(C["mdi"]["comp"]),
+        "Importancia (MDI)",
+        "Variables más importantes para predecir el compuesto (MDI)",
     )
     specs = {k: v.to_dict() for k, v in graficos.items()}
 

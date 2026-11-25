@@ -153,7 +153,18 @@ def grafico_h1(hist: pd.DataFrame):
                                                                range=[GRIS_MEDIO, ACENTO])),
         tooltip=[alt.Tooltip("grupo:N", title="Grupo"), alt.Tooltip("desde:Q", title="Desde (vueltas)"),
                  alt.Tooltip("hasta:Q", title="Hasta (vueltas)"), alt.Tooltip("pct:Q", title="% del grupo", format=".1f")]
-    ).properties(width="container", height=220))
+    ).properties(
+        title=alt.TitleParams(
+            text="Las paradas llegan con neumáticos más gastados",
+            anchor="start",
+            color=TINTA,
+            font=FUENTE,
+            fontSize=14,
+            fontWeight=700,
+        ),
+        width="container",
+        height=220,
+    ))
 
 
 # --------------------------------------------------------------------------
@@ -193,7 +204,7 @@ def grafico_matriz(matriz: pd.DataFrame):
     return config((celdas + texto).properties(width="container", height=210))
 
 
-def grafico_familias(tabla: pd.DataFrame, titulo_x: str):
+def grafico_familias(tabla: pd.DataFrame, titulo_x: str, titulo: str):
     """Media ± desvío del F1 de validación por carrera de cada familia (4 pedazos)."""
     orden = list(tabla.sort_values("f1_validacion", ascending=False).modelo)
     y = alt.Y("modelo:N", sort=orden, title=None, axis=alt.Axis(labelLimit=220, ticks=False, domain=False))
@@ -208,7 +219,11 @@ def grafico_familias(tabla: pd.DataFrame, titulo_x: str):
                  alt.Tooltip("f1_entrenamiento:Q", title="F1 en entrenamiento", format=".3f")])
     return config((barra + punto).transform_calculate(
         lo="datum.f1_validacion - datum.desvio", hi="datum.f1_validacion + datum.desvio"
-    ).properties(width="container", height=alt.Step(30)))
+    ).properties(
+        title=alt.TitleParams(text=titulo, anchor="start", color=TINTA, font=FUENTE, fontSize=14, fontWeight=700),
+        width="container",
+        height=alt.Step(30),
+    ))
 
 
 def grafico_umbral(tabla: pd.DataFrame, umbral: float):
@@ -228,7 +243,7 @@ def grafico_umbral(tabla: pd.DataFrame, umbral: float):
     return config((lineas + regla + texto).properties(width="container", height=220))
 
 
-def grafico_importancia(tabla: pd.DataFrame, titulo_x: str):
+def grafico_importancia(tabla: pd.DataFrame, titulo_x: str, titulo: str):
     orden = list(tabla.sort_values("caida", ascending=False).variable)
     y = alt.Y("variable:N", sort=orden, title=None, axis=alt.Axis(ticks=False, domain=False, labelLimit=200))
     barras = alt.Chart(tabla).mark_bar(height=12, cornerRadiusEnd=3).encode(
@@ -239,7 +254,18 @@ def grafico_importancia(tabla: pd.DataFrame, titulo_x: str):
                  alt.Tooltip("folds_positivos:Q", title="Pedazos con caída > 0")])
     error = alt.Chart(tabla).mark_rule(color=TINTA_3).encode(y=y, x="lo:Q", x2="hi:Q")
     return config((barras + error).transform_calculate(lo="datum.caida - datum.desvio", hi="datum.caida + datum.desvio")
-                  .properties(width="container", height=alt.Step(18)))
+                  .properties(
+                      title=alt.TitleParams(
+                          text=titulo,
+                          anchor="start",
+                          color=TINTA,
+                          font=FUENTE,
+                          fontSize=14,
+                          fontWeight=700,
+                      ),
+                      width="container",
+                      height=alt.Step(18),
+                  ))
 
 
 # --------------------------------------------------------------------------
@@ -396,7 +422,18 @@ def grafico_pr(tabla: pd.DataFrame, umbral: float, prevalencia: float):
     piso = alt.Chart(pd.DataFrame({"p": [prevalencia]})).mark_rule(color=GRIS_MEDIO, strokeDash=[4, 3]).encode(y="p:Q")
     piso_t = alt.Chart(pd.DataFrame({"p": [prevalencia], "x": [0.6], "t": ["piso: siempre parar"]})).mark_text(
         align="left", dy=-7, fontSize=11, color=TINTA_2).encode(x="x:Q", y="p:Q", text="t:N")
-    return config((piso + piso_t + linea + puntos + texto).properties(width="container", height=240))
+    return config((piso + piso_t + linea + puntos + texto).properties(
+        title=alt.TitleParams(
+            text="Precisión y recall según el umbral de parada",
+            anchor="start",
+            color=TINTA,
+            font=FUENTE,
+            fontSize=14,
+            fontWeight=700,
+        ),
+        width="container",
+        height=240,
+    ))
 
 
 def grafico_distancias(dist: pd.DataFrame):
@@ -413,11 +450,22 @@ def grafico_distancias(dist: pd.DataFrame):
     return config((barras + texto).properties(width="container", height=alt.Step(30)))
 
 
-def grafico_mdi(tabla: pd.DataFrame, titulo_x: str):
+def grafico_mdi(tabla: pd.DataFrame, titulo_x: str, titulo: str):
     """Importancia del bosque sin permutación (disminución media de impureza), por variable original."""
     orden = list(tabla.sort_values("importancia", ascending=False).variable)
     return config(alt.Chart(tabla).mark_bar(height=12, cornerRadiusEnd=3, color=GRIS_MDI).encode(
         y=alt.Y("variable:N", sort=orden, title=None, axis=alt.Axis(ticks=False, domain=False, labelLimit=200)),
         x=alt.X("importancia:Q", title=titulo_x, axis=alt.Axis(format="%")),
         tooltip=[alt.Tooltip("variable:N", title="Variable"), alt.Tooltip("importancia:Q", title="Importancia", format=".1%")]
-    ).properties(width="container", height=alt.Step(18)))
+    ).properties(
+        title=alt.TitleParams(
+            text=titulo,
+            anchor="start",
+            color=TINTA,
+            font=FUENTE,
+            fontSize=14,
+            fontWeight=700,
+        ),
+        width="container",
+        height=alt.Step(18),
+    ))
