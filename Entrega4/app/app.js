@@ -95,15 +95,18 @@ function rellenoUmbral() {
 // ------------------------------------------------------------------ tallo
 async function tallo() {
   await Promise.all([dibujar("g-datos", "datos"), dibujar("g-hallazgo", "hallazgo"), dibujar("g-modelo", "modelo")]);
-  // Los gráficos dentro de «Cómo lo sabemos» se dibujan al abrir (necesitan ancho).
-  const enDesplegable = {
+  const graficoPorClave = {
     "g-h1": "h1", "g-familias-pit": "familias_pit", "g-familias-comp": "familias_comp", "g-umbral": "umbral",
     "g-matriz": "matriz", "g-imp-pit": "imp_pit", "g-imp-comp": "imp_comp", "g-pr": "pr",
     "g-distancias": "distancias", "g-mdi-pit": "mdi_pit", "g-mdi-comp": "mdi_comp",
   };
+  await Promise.all($$("#metodologia .grafico").map((fig) => {
+    const clave = graficoPorClave[fig.id];
+    return clave ? dibujar(fig.id, clave) : undefined;
+  }));
   $$("details.como").forEach((det) => det.addEventListener("toggle", () => {
     if (!det.open) return;
-    $$(".grafico", det).forEach((fig) => enDesplegable[fig.id] && dibujar(fig.id, enDesplegable[fig.id]));
+    $$(".grafico", det).forEach((fig) => graficoPorClave[fig.id] && dibujar(fig.id, graficoPorClave[fig.id]));
   }));
 }
 

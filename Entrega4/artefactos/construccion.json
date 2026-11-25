@@ -1,7 +1,7 @@
 {
- "fecha_construccion": "2026-11-11T14:39:04",
+ "fecha_construccion": "2026-11-25T15:29:07",
  "versiones": {
-  "python": "3.12.16",
+  "python": "3.12.10",
   "scikit-learn": "1.6.1",
   "pandas": "2.2.2",
   "numpy": "2.0.2",
@@ -9,7 +9,7 @@
  },
  "semilla": 42,
  "umbral": 0.475,
- "origen_paradas": "reconstruido desde include/output/bronze (pit.json + stints.json)",
+ "origen_paradas": "include\\output\\silver\\f1_silver_pit_stops.csv",
  "comparacion_v6": [
   {
    "numero": "vueltas sin etiqueta descartadas",

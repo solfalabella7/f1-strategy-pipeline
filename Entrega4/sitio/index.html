@@ -93,159 +93,14 @@
 
 <main>
 
-<!-- 01 · LOS DATOS -->
-<section class="seccion garage" id="datos" data-numero="01">
+<!-- EVALUACIÓN DEL MODELO -->
+<section class="seccion metodologia" id="metodologia" data-numero="00">
   <div class="seccion-cabeza">
-    <p class="seccion-numero"><span class="etiqueta-tv"><b>S1</b> THE DATA GARAGE</span> Los datos</p>
-    <h2>Solo 3 de cada 100 vueltas terminan en boxes, y las grandes tandas de paradas llegan con safety car o lluvia</h2>
-    <p class="bajada">2.333 paradas en 70.746 vueltas de 64 carreras (3,3 %). Cada fila es una carrera; cada círculo, una vuelta en la que paró al menos un piloto, y su área indica cuántos.</p>
+    <p class="seccion-numero"><span class="etiqueta-tv"><b>MODEL REVIEW</b> Evaluación</span> Antes del recorrido</p>
+    <h2>Correcciones de la Entrega 3, validación y resultados</h2>
+    <p class="bajada">Qué predice el modelo, cómo se eligió y qué muestran sus aciertos, errores y variables. Esta evaluación va antes del recorrido por los datos.</p>
   </div>
-  <dl class="telemetria" aria-label="El dataset en números">
-    <div><dt>Vueltas con etiqueta</dt><dd data-contar="70.746">70.746</dd></div>
-    <div><dt>Paradas en boxes</dt><dd data-contar="2.333">2.333</dd></div>
-    <div class="destacado"><dt>Vueltas que terminan en boxes</dt><dd>3,3 %</dd></div>
-    <div><dt>Carreras · 2023–2025</dt><dd data-contar="64">64</dd></div>
-  </dl>
-  <div class="pantalla" data-etiqueta="TELEMETRÍA · PARADAS POR VUELTA Y CARRERA">
-    <figure class="grafico grafico-alto" id="g-datos" aria-label="Paradas por vuelta en cada carrera"></figure>
-  </div>
-  <div class="que-mirar">
-    <h3>Qué mirar</h3>
-    <p>La mayoría de los círculos son chicos y grises: paradas de uno o dos pilotos, planificadas, en seco. Los círculos grandes —diez o más autos que entran juntos— son ámbar (safety car en pista) o azules (cambio a neumáticos de lluvia). Esa diferencia es la que va a explicar dónde acierta y dónde falla el modelo.</p>
-    <p>Que las paradas sean tan pocas obliga a no medir con <em>accuracy</em>: un modelo que nunca dice «parar» acertaría el 96,9 % de las vueltas de 2025 sin servir para nada.</p>
-  </div>
-  <ol class="pipeline" aria-label="Del dato crudo al modelo">
-    <li><span class="mono">FUENTE</span><b>OpenF1</b><small>API pública v1</small></li>
-    <li><span class="mono">BRONCE</span><b>JSON</b><small>respuestas tal como llegan</small></li>
-    <li><span class="mono">SILVER</span><b>77.373</b><small>vueltas · 70 carreras</small></li>
-    <li><span class="mono">CON ETIQUETA</span><b>70.746</b><small>vueltas · 64 carreras</small></li>
-    <li><span class="mono">CON HISTORIA</span><b>69.472</b><small>vueltas que se predicen</small></li>
-    <li class="split"><span class="mono">TRAIN · TEST</span><b>43.685 · 25.787</b><small>2023–24 · 2025</small></li>
-  </ol>
-
-  <details class="como">
-    <summary><span>Cómo lo sabemos</span> Fuente, filtros, cantidades y columnas descartadas</summary>
-    <div class="como-cuerpo">
-      <div class="dos-col">
-        <div>
-          <h4>Fuente y obtención</h4>
-          <p>API pública <a href="https://openf1.org/" target="_blank" rel="noopener">OpenF1</a> (v1): vueltas, stints, paradas, clima, posiciones, intervalos y dirección de carrera. Un DAG de Apache Airflow (<code>dags/f1_strategy_pipeline.py</code>) guarda las respuestas tal como llegan en la capa Bronce y <code>src/silver_pipeline.py</code> las une sin mirar el futuro (uniones <em>as-of</em> a la última medición anterior a cada vuelta) en <code>f1_silver_dataset.csv</code>: 77.373 filas × 89 columnas, 70 carreras.</p>
-          <p>Las paradas y el neumático montado salen de emparejar cada parada con el stint siguiente (<code>resolve_driver_pits</code>, mismo código del pipeline). Origen en esta construcción: reconstruido desde include/output/bronze (pit.json + stints.json).</p>
-        </div>
-        <div>
-          <h4>Fecha y unidad</h4>
-          <p>Descarga del 9 de septiembre de 2026. Carreras desde el 2023-06-04 hasta el 2025-12-07 (temporadas 2023, 2024 y 2025 completas).</p>
-          <p><strong>Una fila es una vuelta de un piloto en una carrera.</strong> Clave: <code>(session_key, driver_number, lap_number)</code>, sin duplicados. Dos objetivos: <code>pit_stop</code> (¿para en esta vuelta?) y, si para, el neumático que monta (SOFT, MEDIUM, HARD o LLUVIA = intermedio + mojado).</p>
-        </div>
-      </div>
-
-      <h4>Filtros, en orden</h4>
-      <div class="tabla-envoltura">
-      <table class="tabla">
-        <thead><tr><th>Paso</th><th>Qué se hace</th><th class="n">Vueltas</th><th class="n">Paradas</th><th class="n">Carreras</th><th>Por qué</th></tr></thead>
-        <tbody>
-          <tr><td>0</td><td>Capa Silver del pipeline</td><td class="n">77.373</td><td class="n">—</td><td class="n">70</td><td>Todas las vueltas descargadas.</td></tr>
-          <tr><td>1</td><td>Se descartan las vueltas sin dato de paradas (6.627 vueltas de 6 carreras de 2023)</td><td class="n">70.746</td><td class="n">2.333</td><td class="n">64</td><td>OpenF1 no publica paradas de esas carreras: tratarlas como «no paró» sería inventar la respuesta (devolución de la Entrega 2).</td></tr>
-          <tr><td>2</td><td>Corrección de Bélgica 2025 (20 pilotos)</td><td class="n">70.746</td><td class="n">2.333</td><td class="n">64</td><td>OpenF1 da un stint de una vuelta y otro compuesto desde la vuelta 2 sin parada entre ambos, algo imposible. La regla mira solo la historia de stints y paradas.</td></tr>
-          <tr><td>3</td><td>Se quedan las vueltas con una vuelta previa del piloto con neumático y edad conocidos (−1.274 vueltas, −89 paradas)</td><td class="n">69.472</td><td class="n">2.244</td><td class="n">64</td><td>Todo lo que usa el modelo sale de la vuelta anterior; la primera vuelta de cada piloto no tiene historia.</td></tr>
-          <tr><td>4a</td><td>Entrenamiento y validación: 2023–2024</td><td class="n">43.685</td><td class="n">1.442</td><td class="n">40</td><td rowspan="2">Se entrena con temporadas pasadas y se evalúa en una nueva, como se usaría en la realidad.</td></tr>
-          <tr><td>4b</td><td>Test: 2025, mirado una sola vez</td><td class="n">25.787</td><td class="n">802</td><td class="n">24</td></tr>
-        </tbody>
-      </table>
-      </div>
-      <p class="nota">Neumático montado en las 2.244 paradas: SOFT 321 (14 %), MEDIUM 631 (28 %), HARD 1.072 (48 %), LLUVIA 220 (10 %).</p>
-
-      <h4>Columnas descartadas por fuga de información</h4>
-      <ul class="lista">
-        <li><code>new_compound</code>: es la respuesta.</li>
-        <li><code>current_compound</code>, <code>tyre_age</code> y <code>stint_number</code> de la vuelta que se decide: en la vuelta de la parada ya muestran a veces el neumático nuevo (321 paradas con edad 0 en la Entrega 2). Se usan los de la <strong>vuelta anterior</strong>.</li>
-        <li><code>pit_duration</code>, <code>lane_duration</code>, <code>stop_duration</code>, <code>lap_duration</code> y los tiempos de sector: se conocen al terminar la vuelta o la parada.</li>
-        <li><code>session_max_lap_observed</code>: es el largo final de la carrera; el momento de carrera se mide con el número de vuelta.</li>
-        <li>Por la devolución de la Entrega 2 quedan fuera del modelo <code>safety_car_active</code>, <code>yellow_flag_*</code>, <code>i1_speed</code>, <code>st_speed</code>, <code>interval*</code> y <code>gap_to_leader</code>. El safety car se usa solo para leer los errores.</li>
-      </ul>
-      <h4>Cómo se construyó el gráfico</h4>
-      <p>Datos: las 2.333 paradas, agrupadas por carrera y vuelta (una marca por vuelta con paradas). Marca: círculo; posición horizontal = número de vuelta; fila = carrera, en orden de fecha; área = pilotos que paran en esa vuelta; color = contexto (si alguna de esas paradas fue con safety car, ámbar; si no y alguien montó neumáticos de lluvia, azul). La barra gris de cada fila va de la vuelta 1 a la última registrada.</p>
-    </div>
-  </details>
-</section>
-
-<!-- 02 · LO QUE ENCONTRAMOS -->
-<section class="seccion analisis" id="hallazgo" data-numero="02">
-  <div class="seccion-cabeza">
-    <p class="seccion-numero"><span class="etiqueta-tv"><b>S2</b> PERFORMANCE ANALYSIS</span> Lo que encontramos</p>
-    <h2>Con safety car los equipos cambian de plan: en seco, el HARD baja del 54 % al 36 % de las paradas</h2>
-    <p class="bajada">Neumático montado en las paradas a compuestos de seco, según haya o no safety car en pista (194 paradas con safety car y 1.912 sin).</p>
-  </div>
-  <div class="pantalla pantalla-clara" data-etiqueta="COMPUESTO MONTADO · PARADAS EN SECO">
-    <figure class="grafico" id="g-hallazgo" aria-label="Porcentaje de cada compuesto con y sin safety car"></figure>
-  </div>
-  <div class="que-mirar">
-    <h3>Qué mirar</h3>
-    <p>La distancia entre el círculo y el rombo de cada fila. Con safety car la parada cuesta menos tiempo y se aprovecha para poner un neumático para menos vueltas: crece el SOFT (15 % → 26 %) y el MEDIUM (30 % → 38 %), y cae el HARD. Son paradas que responden a algo que pasa en la carrera, no a un plan escrito antes de largar.</p>
-    <p>Es una asociación, no una causa. Y como el safety car quedó fuera del modelo (devolución de la Entrega 2), es justamente la situación en la que el modelo no tiene con qué anticipar.</p>
-  </div>
-
-  <details class="como">
-    <summary><span>Cómo lo sabemos</span> Hipótesis, números, construcción del gráfico y transformaciones</summary>
-    <div class="como-cuerpo">
-      <p class="nota">Cada hipótesis se decidió con un número contra los cortes de la cátedra. Separación estandarizada: rojo &lt; 0,2 · amarillo 0,2–0,8 · verde &gt; 0,8. Brecha de proporciones: rojo &lt; 0,05 · amarillo 0,05–0,15 · verde &gt; 0,15.</p>
-      <div class="hipotesis">
-        <article class="hip hip-si">
-          <p class="hip-estado">Se sostuvo · verde</p>
-          <h4>H4 · Con safety car se monta un compuesto más blando</h4>
-          <p>Brecha del HARD entre paradas sin y con safety car: <strong>0,246</strong> sobre todas las paradas (50,3 % contra 25,7 %). Como con safety car también hay más lluvia (27,9 % de las paradas monta intermedios o mojado, contra 7,4 % sin safety car), en la Entrega 3 se repitió <strong>solo con paradas a seco: brecha 0,187</strong>, sigue verde. En la Entrega 2 la brecha también siguió verde quitando las últimas 15 vueltas (0,258).</p>
-          <p class="hip-pie">Las 269 paradas con safety car vienen de 20 carreras y muchas son simultáneas: no son decisiones independientes.</p>
-        </article>
-        <article class="hip hip-no">
-          <p class="hip-estado">No se sostuvo · rojo</p>
-          <h4>H2 · Se para más desde posiciones retrasadas</h4>
-          <p>Separación estandarizada de la posición entre vueltas con y sin parada: <strong>0,184</strong>. Las distribuciones se superponen casi por completo y, si algo, los que paran vienen un poco <em>más adelante</em>: posición media 8,83 contra 9,81.</p>
-          <p class="hip-pie">La posición quedó en el modelo como variable a prueba; en la ablación, sacarla no cambia el resultado más allá del ruido.</p>
-        </article>
-      </div>
-      <h4>La edad del neumático marca la ventana, no la vuelta (H1 corregida)</h4>
-      <p>Las vueltas con parada empiezan con neumáticos más gastados —mediana 17 vueltas contra 11; rango intercuartil 10–24 contra 5–19—, pero las dos distribuciones se superponen mucho (separación 0,409, amarillo, en la Entrega 2). Es el histograma que pidió el docente en lugar del boxplot, con la edad <strong>al empezar la vuelta</strong> y cada grupo normalizado por separado.</p>
-      <figure class="grafico grafico-chico" id="g-h1" aria-label="Histograma de la edad del neumático"></figure>
-      <h4>Construcción del gráfico principal</h4>
-      <ul class="lista">
-        <li><strong>Datos:</strong> las 2.333 paradas; se excluyen las que montan intermedio o mojado y quedan 194 con safety car y 1.912 sin.</li>
-        <li><strong>Transformación:</strong> para cada situación, el porcentaje de paradas que monta cada compuesto (tabla cruzada normalizada por fila, así cada grupo suma 100 %).</li>
-        <li><strong>Marcas y escalas:</strong> un punto por compuesto y situación sobre un eje común de 0 a 60 %; la línea gris une los dos valores de cada compuesto para leer la diferencia. Color y forma distinguen la situación.</li>
-        <li><strong>Safety car:</strong> <code>safety_car_active</code> sale de los mensajes de dirección de carrera anteriores al inicio de la vuelta (unión <em>as-of</em> del pipeline).</li>
-      </ul>
-    </div>
-  </details>
-</section>
-
-<!-- 03 · EL MODELO -->
-<section class="seccion lab" id="modelo" data-numero="03">
-  <div class="seccion-cabeza">
-    <p class="seccion-numero"><span class="etiqueta-tv"><b>S3</b> INTELLIGENCE LAB</span> El modelo</p>
-    <h2>El modelo anticipa 2 de cada 3 paradas en seco, pero casi ninguna de las que provocan el safety car o la lluvia</h2>
-    <p class="bajada">Paradas reales de 2025 con la alarma encendida en esa misma vuelta (puntaje del modelo ≥ 0,475), según el contexto de la parada.</p>
-  </div>
-  <div class="pantalla" data-etiqueta="TEST 2025 · PARADAS CON ALARMA EN ESA VUELTA">
-    <figure class="grafico" id="g-modelo" aria-label="Porcentaje de paradas anticipadas por contexto"></figure>
-  </div>
-  <div class="que-mirar">
-    <h3>Qué mirar</h3>
-    <p>Las tres barras usan el mismo modelo, el mismo umbral y la misma temporada. Cuando la parada es parte del plan —un neumático que se gasta— el modelo la ve venir: la alarma se prende varias vueltas antes y se apaga al parar. Cuando la parada es una reacción a algo que pasa en la pista, llega sin aviso: con safety car anticipa 5 de 106 y a neumáticos de lluvia 2 de 33.</p>
-    <p>El precio de vigilar la ventana son las falsas alarmas: de las 6.077 vueltas con alarma en 2025, solo el 7,2 % es una parada en esa vuelta exacta. Sirve como aviso de «se abrió la ventana», no como orden de «entrá ahora».</p>
-  </div>
-  <ol class="flujo" aria-label="Cómo decide el modelo en cada vuelta">
-    <li><span class="mono">ENTRADA</span><b>La vuelta que empieza</b><small>piloto, carrera, número de vuelta, circuito y equipo</small></li>
-    <li><span class="mono">HISTORIA CAUSAL</span><b>18 variables</b><small>solo de vueltas anteriores: neumático, paradas, pelotón y clima</small></li>
-    <li class="cian"><span class="mono">BOSQUE 1 · 150 ÁRBOLES</span><b>Puntaje de parada</b><small>¿supera 0,475? → alarma</small></li>
-    <li class="cian"><span class="mono">BOSQUE 2 · 150 ÁRBOLES</span><b>Neumático</b><small>probabilidad de SOFT, MEDIUM, HARD o LLUVIA</small></li>
-  </ol>
-  <div class="mini-kpis">
-    <div><p class="mk-n">0,128</p><p>F1 de la clase «para» en 2025 · «siempre parar» da 0,060</p></div>
-    <div><p class="mk-n">0,638</p><p>F1 macro del neumático en las paradas reales · «siempre HARD» da 0,140</p></div>
-    <div><p class="mk-n">42,6 %</p><p>de las paradas de 2025 con las dos decisiones bien: parar en esa vuelta y el neumático (342 de 802)</p></div>
-  </div>
-
-  <details class="como">
-    <summary><span>Cómo lo sabemos</span> Correcciones de la Entrega 3, métrica, piso, validación, comparación, ajuste, test, errores y variables</summary>
+  <div class="como">
     <div class="como-cuerpo">
       <h4>Qué corregimos desde la Entrega 3</h4>
       <p>El modelo es el mismo que se eligió en la Entrega 3 (dos random forest, umbral 0,475). Lo que cambió es cómo se leen sus errores, que es lo que pidió la devolución:</p>
@@ -392,7 +247,160 @@
         <figure class="grafico grafico-chico" id="g-mdi-comp" aria-label="Importancia MDI para el neumático"></figure>
       </div>
     </div>
+  </div>
+</section>
+
+<!-- 01 · LOS DATOS -->
+<section class="seccion garage" id="datos" data-numero="01">
+  <div class="seccion-cabeza">
+    <p class="seccion-numero"><span class="etiqueta-tv"><b>S1</b> THE DATA GARAGE</span> Los datos</p>
+    <h2>Solo 3 de cada 100 vueltas terminan en boxes, y las grandes tandas de paradas llegan con safety car o lluvia</h2>
+    <p class="bajada">2.333 paradas en 70.746 vueltas de 64 carreras (3,3 %). Cada fila es una carrera; cada círculo, una vuelta en la que paró al menos un piloto, y su área indica cuántos.</p>
+  </div>
+  <dl class="telemetria" aria-label="El dataset en números">
+    <div><dt>Vueltas con etiqueta</dt><dd data-contar="70.746">70.746</dd></div>
+    <div><dt>Paradas en boxes</dt><dd data-contar="2.333">2.333</dd></div>
+    <div class="destacado"><dt>Vueltas que terminan en boxes</dt><dd>3,3 %</dd></div>
+    <div><dt>Carreras · 2023–2025</dt><dd data-contar="64">64</dd></div>
+  </dl>
+  <div class="pantalla" data-etiqueta="TELEMETRÍA · PARADAS POR VUELTA Y CARRERA">
+    <figure class="grafico grafico-alto" id="g-datos" aria-label="Paradas por vuelta en cada carrera"></figure>
+  </div>
+  <div class="que-mirar">
+    <h3>Qué mirar</h3>
+    <p>La mayoría de los círculos son chicos y grises: paradas de uno o dos pilotos, planificadas, en seco. Los círculos grandes —diez o más autos que entran juntos— son ámbar (safety car en pista) o azules (cambio a neumáticos de lluvia). Esa diferencia es la que va a explicar dónde acierta y dónde falla el modelo.</p>
+    <p>Que las paradas sean tan pocas obliga a no medir con <em>accuracy</em>: un modelo que nunca dice «parar» acertaría el 96,9 % de las vueltas de 2025 sin servir para nada.</p>
+  </div>
+  <ol class="pipeline" aria-label="Del dato crudo al modelo">
+    <li><span class="mono">FUENTE</span><b>OpenF1</b><small>API pública v1</small></li>
+    <li><span class="mono">BRONCE</span><b>JSON</b><small>respuestas tal como llegan</small></li>
+    <li><span class="mono">SILVER</span><b>77.373</b><small>vueltas · 70 carreras</small></li>
+    <li><span class="mono">CON ETIQUETA</span><b>70.746</b><small>vueltas · 64 carreras</small></li>
+    <li><span class="mono">CON HISTORIA</span><b>69.472</b><small>vueltas que se predicen</small></li>
+    <li class="split"><span class="mono">TRAIN · TEST</span><b>43.685 · 25.787</b><small>2023–24 · 2025</small></li>
+  </ol>
+
+  <details class="como">
+    <summary><span>Cómo lo sabemos</span> Fuente, filtros, cantidades y columnas descartadas</summary>
+    <div class="como-cuerpo">
+      <div class="dos-col">
+        <div>
+          <h4>Fuente y obtención</h4>
+          <p>API pública <a href="https://openf1.org/" target="_blank" rel="noopener">OpenF1</a> (v1): vueltas, stints, paradas, clima, posiciones, intervalos y dirección de carrera. Un DAG de Apache Airflow (<code>dags/f1_strategy_pipeline.py</code>) guarda las respuestas tal como llegan en la capa Bronce y <code>src/silver_pipeline.py</code> las une sin mirar el futuro (uniones <em>as-of</em> a la última medición anterior a cada vuelta) en <code>f1_silver_dataset.csv</code>: 77.373 filas × 89 columnas, 70 carreras.</p>
+          <p>Las paradas y el neumático montado salen de emparejar cada parada con el stint siguiente (<code>resolve_driver_pits</code>, mismo código del pipeline). Origen en esta construcción: include\output\silver\f1_silver_pit_stops.csv.</p>
+        </div>
+        <div>
+          <h4>Fecha y unidad</h4>
+          <p>Descarga del 9 de septiembre de 2026. Carreras desde el 2023-06-04 hasta el 2025-12-07 (temporadas 2023, 2024 y 2025 completas).</p>
+          <p><strong>Una fila es una vuelta de un piloto en una carrera.</strong> Clave: <code>(session_key, driver_number, lap_number)</code>, sin duplicados. Dos objetivos: <code>pit_stop</code> (¿para en esta vuelta?) y, si para, el neumático que monta (SOFT, MEDIUM, HARD o LLUVIA = intermedio + mojado).</p>
+        </div>
+      </div>
+
+      <h4>Filtros, en orden</h4>
+      <div class="tabla-envoltura">
+      <table class="tabla">
+        <thead><tr><th>Paso</th><th>Qué se hace</th><th class="n">Vueltas</th><th class="n">Paradas</th><th class="n">Carreras</th><th>Por qué</th></tr></thead>
+        <tbody>
+          <tr><td>0</td><td>Capa Silver del pipeline</td><td class="n">77.373</td><td class="n">—</td><td class="n">70</td><td>Todas las vueltas descargadas.</td></tr>
+          <tr><td>1</td><td>Se descartan las vueltas sin dato de paradas (6.627 vueltas de 6 carreras de 2023)</td><td class="n">70.746</td><td class="n">2.333</td><td class="n">64</td><td>OpenF1 no publica paradas de esas carreras: tratarlas como «no paró» sería inventar la respuesta (devolución de la Entrega 2).</td></tr>
+          <tr><td>2</td><td>Corrección de Bélgica 2025 (20 pilotos)</td><td class="n">70.746</td><td class="n">2.333</td><td class="n">64</td><td>OpenF1 da un stint de una vuelta y otro compuesto desde la vuelta 2 sin parada entre ambos, algo imposible. La regla mira solo la historia de stints y paradas.</td></tr>
+          <tr><td>3</td><td>Se quedan las vueltas con una vuelta previa del piloto con neumático y edad conocidos (−1.274 vueltas, −89 paradas)</td><td class="n">69.472</td><td class="n">2.244</td><td class="n">64</td><td>Todo lo que usa el modelo sale de la vuelta anterior; la primera vuelta de cada piloto no tiene historia.</td></tr>
+          <tr><td>4a</td><td>Entrenamiento y validación: 2023–2024</td><td class="n">43.685</td><td class="n">1.442</td><td class="n">40</td><td rowspan="2">Se entrena con temporadas pasadas y se evalúa en una nueva, como se usaría en la realidad.</td></tr>
+          <tr><td>4b</td><td>Test: 2025, mirado una sola vez</td><td class="n">25.787</td><td class="n">802</td><td class="n">24</td></tr>
+        </tbody>
+      </table>
+      </div>
+      <p class="nota">Neumático montado en las 2.244 paradas: SOFT 321 (14 %), MEDIUM 631 (28 %), HARD 1.072 (48 %), LLUVIA 220 (10 %).</p>
+
+      <h4>Columnas descartadas por fuga de información</h4>
+      <ul class="lista">
+        <li><code>new_compound</code>: es la respuesta.</li>
+        <li><code>current_compound</code>, <code>tyre_age</code> y <code>stint_number</code> de la vuelta que se decide: en la vuelta de la parada ya muestran a veces el neumático nuevo (321 paradas con edad 0 en la Entrega 2). Se usan los de la <strong>vuelta anterior</strong>.</li>
+        <li><code>pit_duration</code>, <code>lane_duration</code>, <code>stop_duration</code>, <code>lap_duration</code> y los tiempos de sector: se conocen al terminar la vuelta o la parada.</li>
+        <li><code>session_max_lap_observed</code>: es el largo final de la carrera; el momento de carrera se mide con el número de vuelta.</li>
+        <li>Por la devolución de la Entrega 2 quedan fuera del modelo <code>safety_car_active</code>, <code>yellow_flag_*</code>, <code>i1_speed</code>, <code>st_speed</code>, <code>interval*</code> y <code>gap_to_leader</code>. El safety car se usa solo para leer los errores.</li>
+      </ul>
+      <h4>Cómo se construyó el gráfico</h4>
+      <p>Datos: las 2.333 paradas, agrupadas por carrera y vuelta (una marca por vuelta con paradas). Marca: círculo; posición horizontal = número de vuelta; fila = carrera, en orden de fecha; área = pilotos que paran en esa vuelta; color = contexto (si alguna de esas paradas fue con safety car, ámbar; si no y alguien montó neumáticos de lluvia, azul). La barra gris de cada fila va de la vuelta 1 a la última registrada.</p>
+    </div>
   </details>
+</section>
+
+<!-- 02 · LO QUE ENCONTRAMOS -->
+<section class="seccion analisis" id="hallazgo" data-numero="02">
+  <div class="seccion-cabeza">
+    <p class="seccion-numero"><span class="etiqueta-tv"><b>S2</b> PERFORMANCE ANALYSIS</span> Lo que encontramos</p>
+    <h2>Con safety car los equipos cambian de plan: en seco, el HARD baja del 54 % al 36 % de las paradas</h2>
+    <p class="bajada">Neumático montado en las paradas a compuestos de seco, según haya o no safety car en pista (194 paradas con safety car y 1.912 sin).</p>
+  </div>
+  <div class="pantalla pantalla-clara" data-etiqueta="COMPUESTO MONTADO · PARADAS EN SECO">
+    <figure class="grafico" id="g-hallazgo" aria-label="Porcentaje de cada compuesto con y sin safety car"></figure>
+  </div>
+  <div class="que-mirar">
+    <h3>Qué mirar</h3>
+    <p>La distancia entre el círculo y el rombo de cada fila. Con safety car la parada cuesta menos tiempo y se aprovecha para poner un neumático para menos vueltas: crece el SOFT (15 % → 26 %) y el MEDIUM (30 % → 38 %), y cae el HARD. Son paradas que responden a algo que pasa en la carrera, no a un plan escrito antes de largar.</p>
+    <p>Es una asociación, no una causa. Y como el safety car quedó fuera del modelo (devolución de la Entrega 2), es justamente la situación en la que el modelo no tiene con qué anticipar.</p>
+  </div>
+
+  <details class="como">
+    <summary><span>Cómo lo sabemos</span> Hipótesis, números, construcción del gráfico y transformaciones</summary>
+    <div class="como-cuerpo">
+      <p class="nota">Cada hipótesis se decidió con un número contra los cortes de la cátedra. Separación estandarizada: rojo &lt; 0,2 · amarillo 0,2–0,8 · verde &gt; 0,8. Brecha de proporciones: rojo &lt; 0,05 · amarillo 0,05–0,15 · verde &gt; 0,15.</p>
+      <div class="hipotesis">
+        <article class="hip hip-si">
+          <p class="hip-estado">Se sostuvo · verde</p>
+          <h4>H4 · Con safety car se monta un compuesto más blando</h4>
+          <p>Brecha del HARD entre paradas sin y con safety car: <strong>0,246</strong> sobre todas las paradas (50,3 % contra 25,7 %). Como con safety car también hay más lluvia (27,9 % de las paradas monta intermedios o mojado, contra 7,4 % sin safety car), en la Entrega 3 se repitió <strong>solo con paradas a seco: brecha 0,187</strong>, sigue verde. En la Entrega 2 la brecha también siguió verde quitando las últimas 15 vueltas (0,258).</p>
+          <p class="hip-pie">Las 269 paradas con safety car vienen de 20 carreras y muchas son simultáneas: no son decisiones independientes.</p>
+        </article>
+        <article class="hip hip-no">
+          <p class="hip-estado">No se sostuvo · rojo</p>
+          <h4>H2 · Se para más desde posiciones retrasadas</h4>
+          <p>Separación estandarizada de la posición entre vueltas con y sin parada: <strong>0,184</strong>. Las distribuciones se superponen casi por completo y, si algo, los que paran vienen un poco <em>más adelante</em>: posición media 8,83 contra 9,81.</p>
+          <p class="hip-pie">La posición quedó en el modelo como variable a prueba; en la ablación, sacarla no cambia el resultado más allá del ruido.</p>
+        </article>
+      </div>
+      <h4>La edad del neumático marca la ventana, no la vuelta (H1 corregida)</h4>
+      <p>Las vueltas con parada empiezan con neumáticos más gastados —mediana 17 vueltas contra 11; rango intercuartil 10–24 contra 5–19—, pero las dos distribuciones se superponen mucho (separación 0,409, amarillo, en la Entrega 2). Es el histograma que pidió el docente en lugar del boxplot, con la edad <strong>al empezar la vuelta</strong> y cada grupo normalizado por separado.</p>
+      <figure class="grafico grafico-chico" id="g-h1" aria-label="Histograma de la edad del neumático"></figure>
+      <h4>Construcción del gráfico principal</h4>
+      <ul class="lista">
+        <li><strong>Datos:</strong> las 2.333 paradas; se excluyen las que montan intermedio o mojado y quedan 194 con safety car y 1.912 sin.</li>
+        <li><strong>Transformación:</strong> para cada situación, el porcentaje de paradas que monta cada compuesto (tabla cruzada normalizada por fila, así cada grupo suma 100 %).</li>
+        <li><strong>Marcas y escalas:</strong> un punto por compuesto y situación sobre un eje común de 0 a 60 %; la línea gris une los dos valores de cada compuesto para leer la diferencia. Color y forma distinguen la situación.</li>
+        <li><strong>Safety car:</strong> <code>safety_car_active</code> sale de los mensajes de dirección de carrera anteriores al inicio de la vuelta (unión <em>as-of</em> del pipeline).</li>
+      </ul>
+    </div>
+  </details>
+</section>
+
+<!-- 03 · EL MODELO -->
+<section class="seccion lab" id="modelo" data-numero="03">
+  <div class="seccion-cabeza">
+    <p class="seccion-numero"><span class="etiqueta-tv"><b>S3</b> INTELLIGENCE LAB</span> El modelo</p>
+    <h2>El modelo anticipa 2 de cada 3 paradas en seco, pero casi ninguna de las que provocan el safety car o la lluvia</h2>
+    <p class="bajada">Paradas reales de 2025 con la alarma encendida en esa misma vuelta (puntaje del modelo ≥ 0,475), según el contexto de la parada.</p>
+  </div>
+  <div class="pantalla" data-etiqueta="TEST 2025 · PARADAS CON ALARMA EN ESA VUELTA">
+    <figure class="grafico" id="g-modelo" aria-label="Porcentaje de paradas anticipadas por contexto"></figure>
+  </div>
+  <div class="que-mirar">
+    <h3>Qué mirar</h3>
+    <p>Las tres barras usan el mismo modelo, el mismo umbral y la misma temporada. Cuando la parada es parte del plan —un neumático que se gasta— el modelo la ve venir: la alarma se prende varias vueltas antes y se apaga al parar. Cuando la parada es una reacción a algo que pasa en la pista, llega sin aviso: con safety car anticipa 5 de 106 y a neumáticos de lluvia 2 de 33.</p>
+    <p>El precio de vigilar la ventana son las falsas alarmas: de las 6.077 vueltas con alarma en 2025, solo el 7,2 % es una parada en esa vuelta exacta. Sirve como aviso de «se abrió la ventana», no como orden de «entrá ahora».</p>
+  </div>
+  <ol class="flujo" aria-label="Cómo decide el modelo en cada vuelta">
+    <li><span class="mono">ENTRADA</span><b>La vuelta que empieza</b><small>piloto, carrera, número de vuelta, circuito y equipo</small></li>
+    <li><span class="mono">HISTORIA CAUSAL</span><b>18 variables</b><small>solo de vueltas anteriores: neumático, paradas, pelotón y clima</small></li>
+    <li class="cian"><span class="mono">BOSQUE 1 · 150 ÁRBOLES</span><b>Puntaje de parada</b><small>¿supera 0,475? → alarma</small></li>
+    <li class="cian"><span class="mono">BOSQUE 2 · 150 ÁRBOLES</span><b>Neumático</b><small>probabilidad de SOFT, MEDIUM, HARD o LLUVIA</small></li>
+  </ol>
+  <div class="mini-kpis">
+    <div><p class="mk-n">0,128</p><p>F1 de la clase «para» en 2025 · «siempre parar» da 0,060</p></div>
+    <div><p class="mk-n">0,638</p><p>F1 macro del neumático en las paradas reales · «siempre HARD» da 0,140</p></div>
+    <div><p class="mk-n">42,6 %</p><p>de las paradas de 2025 con las dos decisiones bien: parar en esa vuelta y el neumático (342 de 802)</p></div>
+  </div>
+
 </section>
 
 <!-- ================================================================== COPA -->
@@ -620,7 +628,7 @@
     </div>
     <div class="pie-repro">
       <p class="volanta">Reproducibilidad</p>
-      <p>Generada el 2026-11-11 con <code>build_app.py</code> a partir de la capa Silver del pipeline, con scikit-learn 1.6.1 y semilla 42. 20 de 20 números de control coinciden con el notebook de la Entrega 3 (v6). El modelo del navegador coincide con <code>predict_proba</code> de Python en las 69.472 vueltas (diferencia máxima 2e-15).</p>
+      <p>Generada el 2026-11-25 con <code>build_app.py</code> a partir de la capa Silver del pipeline, con scikit-learn 1.6.1 y semilla 42. 20 de 20 números de control coinciden con el notebook de la Entrega 3 (v6). El modelo del navegador coincide con <code>predict_proba</code> de Python en las 69.472 vueltas (diferencia máxima 2e-15).</p>
     </div>
   </div>
 </footer>
