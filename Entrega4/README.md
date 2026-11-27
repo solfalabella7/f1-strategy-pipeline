@@ -91,17 +91,17 @@ Concepto: **el centro de análisis de una escudería**. La copa de martini se re
 | **02 Lo que encontramos:** hallazgo, gráfico, explicación | H4: con safety car baja el HARD (54 % → 36 % en seco) |
 | Hipótesis que se sostuvo y que no, con números; construcción del gráfico; transformaciones | Desplegable de 02 (H4 verde, H2 roja, H1 corregida con histograma) |
 | **03 El modelo:** qué logró, gráfico, explicación | Paradas anticipadas según el contexto |
-| Métrica y justificación, piso, validación, comparación con media ± desvío, ajuste, test, análisis de errores, variables | Desplegable de 03 |
+| Métrica y justificación, piso, validación, comparación con media ± desvío, ajuste, test, análisis de errores, variables | Sección «Evaluación del modelo», antes de S1 |
 | **04 Explorá:** panorama, todos los registros, ≥ 2 controles que filtran de verdad, detalle de cada registro con el resultado del modelo | Temporada, tipo de parada, umbral, Gran Premio y piloto; mapa piloto × vuelta con tooltip y ficha al hacer clic |
 | **05 Probá el modelo:** ingreso de valores, validación, rechazo de valores no vistos, mensajes, predicción y probabilidades | Dos modos: «Vuelta real» (carrera, piloto y vuelta a vuelta: predicción contra lo que pasó, con juicio de acierto) y «Mi escenario» (formulario con rangos de 2023–2024 y reglas de coherencia); en ambos, puntaje contra umbral y probabilidad de cada neumático |
 | Gráficos en Altair, colores coherentes, tallo legible sin interacción, copa interactiva | `src/graficos.py`; paleta validada con el validador de paletas: compuestos, contexto y cian del modelo |
 | Reproducible, script de construcción, README y dependencias | `build_app.py`, este archivo, `requirements-app.txt` |
 
-**Correcciones de la Entrega 3** (`CorreccionesEntrega3.md`): la tabla «Qué corregimos desde la Entrega 3», al principio del desplegable del modelo, responde cada punto. Incluye la curva precisión–recall con umbrales rotulados, umbrales más bajos en 2025, las falsas alarmas por distancia a la parada, la tolerancia de 1 a 3 vueltas y la importancia sin permutación (MDI) junto a la de permutación.
+**Correcciones de la Entrega 3** (`CorreccionesEntrega3.md`): la tabla «Qué corregimos desde la Entrega 3», en la sección inicial «Evaluación del modelo», responde cada punto. Incluye la curva precisión–recall con umbrales rotulados, umbrales más bajos en 2025, las falsas alarmas por distancia a la parada, la tolerancia de 1 a 3 vueltas y la importancia sin permutación (MDI) junto a la de permutación.
 
 **Defensa:** guía de los 25 minutos en [`DEFENSA_ENTREGA4.md`](DEFENSA_ENTREGA4.md).
 
-La devolución de la Entrega 3 pedía mirar en qué forma se equivoca el modelo y qué le resulta fácil y qué difícil. Eso se tomó como eje del relato: el gráfico del modelo separa las paradas planificadas de las reactivas, y el desplegable detalla las falsas alarmas por distancia a la parada, las rachas, el perfil de las paradas omitidas y el caso de Bélgica 2025.
+La devolución de la Entrega 3 pedía mirar en qué forma se equivoca el modelo y qué le resulta fácil y qué difícil. Eso se tomó como eje del relato: el gráfico del modelo separa las paradas planificadas de las reactivas, y la sección inicial detalla las falsas alarmas por distancia a la parada, las rachas, el perfil de las paradas omitidas y el caso de Bélgica 2025.
 
 ## Verificación realizada
 
